@@ -1,3 +1,5 @@
+#pragma once
+
 /*
  * Pin definitions for the Kuhglocke ground station (Rev 1.0)
  */

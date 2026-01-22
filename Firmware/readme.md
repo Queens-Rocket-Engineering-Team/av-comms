@@ -13,3 +13,12 @@ Our firmware uses a variety of external libraries. Most libraries can be found t
 - QMA6100P library was written by Tristan (ft. Brent) [See QMA6100P repository.](https://github.com/t-alderson/QMA6100P_Arduino_Library)
 - The RDES compression & FlashTable system was developed by Kennan. [See RDES repository.](https://github.com/Kenneract/Realtime-Deviation-Encoding-Scheme)
 - The modified NAU7802_2CH library was written by Sparkfun & forked by Kennan [See NAU7802_2CH repository.](https://github.com/Kenneract/NAU7802_Arduino_2CH)
+
+
+changes to library: in ESPAsyncWebServer in WebAuthentication.cpp 
+
+lines 73-76 change them to 
+  mbedtls_md5_init(&_ctx);
+  mbedtls_md5_starts(&_ctx);
+  mbedtls_md5_update(&_ctx, data, len);
+  mbedtls_md5_finish(&_ctx, _buf);
