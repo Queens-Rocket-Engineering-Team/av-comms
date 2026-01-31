@@ -1,14 +1,13 @@
-# QRET Avionics (2023-2026)
+# Avionics Power Deliver (Communications Module, Ground Station, etc)
+> 2023-2025 Season - Communications Projects
 
-This repository is the working space for QRET's 2023-2026 Avionics systems. This includes both hardware design and firmware projects.
+-  Repo contains board's **firmware**, **schematics**, and related **documentation and datasheets**.
+-  The **Main** branch contains current functional hardware/software
+-  **Branches** contain board revisions/versions or planned features/fixes.
+-  If you're contributing, **make sure you're working in a branch other than Main**
 
-If you're contributing, **make sure you're working in a branch other than Main.**
-
-## Branch Naming Conventions
-If you create a new branch, make sure its name includes:
-- The subject you're working on
-- Hardware (HW) or Firmware (FW)
-
-Examples: `Altimeter_HW`, `Sensors_FW`
-
-Currently we're using KiCAD 8.0.6.
+### Folder Structure
+- [`/Schematics`](./Schematics/) : PCB design files (KiCad V8)  
+- [`/Firmware`](./Firmware/) : Arduino C/C++ code (for STM32)
+- [`/Datasheets`](./Datasheets/) : Datasheets and reference materials  
+- [`.gitignore`](./.gitignore) : Build and temporary files excluded

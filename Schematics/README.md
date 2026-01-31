@@ -1,31 +1,10 @@
 # Schematics
 
-This directory contains all schematics involved in this iteration of the Avionics system.
-
-## Backplane
-- Single, large PCB
-- Connects all stack "modules" (PCBs)
-- Allows communication between modules
-- Cleaner routing for power
-
-## GPS Module
-- Acquires GPS signal
-- Logs GPS data locally
+This directory contains all schematics involved in this iteration of the Avionics Communications System.
 
 ## Communications Module
-- Tracks data from other modules using CANBUS
-- Remotely transmits data to ground station
+- Facilitates communication to ground station via LoRa
 
-## Altimter Module
-- Tracks altitude using pressure and accelerometer
-- Deploys parachute charges
-- Logs altitude, pressure, events, etc. locally
+## Kuhglocke Ground Station
+- Handheld ground station used for in flight telemetry and recovery
 
-## Sensors Module
-- Has various on-board sensors
-- Logs data from above sensors locally
-
-## Power Module
-- Facilitates connections between backplane and external devices
-	- Batteries
-	- Screw switches
