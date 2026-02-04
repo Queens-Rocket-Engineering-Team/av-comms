@@ -91,8 +91,7 @@ void setup() {
   do {
     display.fillScreen(GxEPD_WHITE);
     display.setTextSize(1);
-    display.print("QRET Kuhglocke    FW=");
-    display.println(FIRMWARE_VERSION);
+    display.println(String("QRET Kuhglocke    FW=") + FIRMWARE_VERSION);
     display.setCursor(30,20);
     display.setTextSize(7);
     display.println("QRET");
@@ -113,7 +112,6 @@ void setup() {
   SD_MMC.setPins(SDMMC_CLK_PIN, SDMMC_CMD_PIN, SDMMC_D0_PIN);
   if (!SD_MMC.begin("/sdcard", true)) {
     Serial.println("[WARN] MicroSD Card Mount Failed");
-    //while(true);
   } else {
     Serial.println("SD: Card Mount Success");
     makeNextSDLog();
@@ -136,11 +134,27 @@ void setup() {
   }//if
 
   // Launch WiFi AP
-  WiFi.softAP(AP_SSID, AP_PASSWORD, WIFI_CHANNEL);
+  WiFi.begin(AP_SSID, AP_PASSWORD);//TODO: Change to names to WIFI_SSID,WIFI_PASSWORD
   WiFi.setTxPower(WIFI_TX_POWER);
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("WiFi AP IP address: ");
-  Serial.println(IP);
+  uint32_t wifiConnectStart = millis();
+while (WiFi.status() != WL_CONNECTED && millis() - wifiConnectStart < 1000) {  // 1 second timeout
+    delay(500);
+    Serial.print(".");//conntect status
+}// while
+ 
+if (WiFi.status() == WL_CONNECTED) {
+    IPAddress IP = WiFi.localIP();
+    Serial.println("\nWiFi connected!");
+    Serial.print("IP address: ");
+    Serial.println(IP);
+} else {
+    Serial.println("\nWiFi connection failed - falling back to AP mode");
+    // Fallback to AP mode if station fails
+    WiFi.softAP(AP_SSID, AP_PASSWORD, WIFI_CHANNEL);
+    IPAddress IP = WiFi.softAPIP();
+    Serial.print("Fallback AP IP address: ");
+    Serial.println(IP);
+}
 
   // Configure Async web server
   configWebServer();
@@ -173,24 +187,16 @@ void loop() {
   // Note loop start time
   uint32_t loopStart = millis();
   
-  //setRGB(4, 64,0,0);
-  //delay(50);
-  //setRGB(4, 0,0,0);
-  //delay(1000);
-
   
   handleGPS();
   handleReadSensors();
   handleLEDs();
-  //Serial.print("BTNS=");
-  //Serial.println(analogRead(MENU_BTNS_PIN));
   if (analogRead(MENU_BTNS_PIN) > 40) {
     setLEDBrightness(255);
-    //setRGB(4, 255,255,255);
-    //writeToSDLog("This is an example log file line.");
+
   } else {
     setLEDBrightness(DEFAULT_LED_BRIGHTNESS);
-    //setRGB(4, 0,0,0);
+
   }
 
   // Check for incoming RFM95 packets
@@ -205,10 +211,7 @@ void loop() {
   core1LoopFilter.AddValue(core1LoopTime);
   if (core1LoopTime > maxCore1LoopTime) {maxCore1LoopTime = core1LoopTime;}
 
-  if (millis() - lastEPDUpdate > EPD_UPDATE_INT) {
-    lastEPDUpdate = millis();
-    //updateEPD();
-  }
+
 
 }//loop()
 

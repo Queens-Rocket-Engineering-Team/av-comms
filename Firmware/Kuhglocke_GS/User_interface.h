@@ -32,7 +32,7 @@ void setRGB(byte index, byte r, byte g, byte b);
 void setRGB(byte index, byte r, byte g, byte b, bool push);
 void setRGB(byte r, byte g, byte b);
 bool makeNextSDLog();
-bool writeToSDLog(String txt);
+bool writeToSDLog(const String& txt);
 void handleLEDs();
 
 // External function prototypes (from other files)

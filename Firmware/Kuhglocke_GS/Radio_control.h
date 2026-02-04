@@ -51,7 +51,7 @@ void indRFDoFlash();
 void onRFMReceive();
 
 // External function prototypes (from other files)
-bool writeToSDLog(String txt);
+bool writeToSDLog(const String& txt);
 String byteArrayToHexString(byte* byteArray, int length);
 void calculateRocketVelocity();
 

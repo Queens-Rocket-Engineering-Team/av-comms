@@ -57,91 +57,94 @@ void configWebServer() {
     request->send(SPIFFS, "/debug.html", String(), false, processorDebug);
   });
 
-  // Route for dashboard web page
-  webServer.on("/dashboard", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/dashboard.html", String(), false, processorDebug);
-  });
-
-  // Debug webpage DATA endpoint
+  // Route for dashboard web page live updates reduce heap usage
   webServer.on("/debugData", HTTP_GET, [](AsyncWebServerRequest *request){
-    // Return string containing LOTS of debug data
-    // Only include dynamic variables
-    
-    // Uptime,MainLoopSpeed,MaxMainLoopSpeed,FreeHeap,AmbientTemp (4)
-    String resp = String(millis());
-    resp += "," + String(core1LoopFilter.GetFiltered());
-    resp += "," + String(maxCore1LoopTime);
-    resp += "," + String(ESP.getFreeHeap()/1024.0, 1);
-    resp += "," + String(getAmbTemperature());
+  AsyncResponseStream *res = request->beginResponseStream("text/plain");
 
-    // PSUVolt,BattVolt,BattSoC,SysCurrent,BattStatus,USBMode (5)
-    resp += "," + String(getPSUVoltage());
-    uint16_t battVolt = getBatteryVoltage();
-    resp += "," + String(battVolt);
-    resp += "," + String(voltToPercent(battVolt));
-    resp += "," + String(getSystemCurrent());
-    uint8_t chrgStat = getChargingStatus();
-    if      (chrgStat == 0) { resp += ",Charging"; }
-    else if (chrgStat == 1) { resp += ",Fully Charged"; }
-    else                    { resp += ",Discharging"; }
-    resp += "," + ((usbDataOnly) ? String("Data Only") : String("Power + Data"));
+  // Uptime,MainLoopSpeed,MaxMainLoopSpeed,FreeHeap,AmbientTemp
+  res->print(millis());
+  res->print(','); res->print(core1LoopFilter.GetFiltered());
+  res->print(','); res->print(maxCore1LoopTime);
+  res->print(','); res->print(ESP.getFreeHeap() / 1024.0, 1);
+  res->print(','); res->print(getAmbTemperature());
 
-    // FixAge,NumSat,Lat,Lon,Alt,Timestamp (6)
-    resp += "," + String(gps.location.age());
-    resp += "," + String(gps.satellites.value());
-    resp += "," + String(gps.location.lat(), 6);
-    resp += "," + String(gps.location.lng(), 6);
-    resp += "," + String(gps.altitude.meters());
-    resp += "," + String(1);
+  // PSUVolt,BattVolt,BattSoC,SysCurrent,BattStatus,USBMode
+  res->print(','); res->print(getPSUVoltage());
+  uint16_t battVolt = getBatteryVoltage();
+  res->print(','); res->print(battVolt);
+  res->print(','); res->print(voltToPercent(battVolt));
+  res->print(','); res->print(getSystemCurrent());
 
-    // SDPresent,SDCapacity,SDAvailable,LogID,SPIFFSSize,SPIFFSFree (6)
-    if (SD_MMC.cardType() == CARD_NONE) {
-      resp += ",No";
-      resp += ",?";
-      resp += ",?";
-      resp += ",?";
-    } else {
-      resp += ",Yes";
-      uint32_t sdSize = SD_MMC.totalBytes() / (1024 * 1024);
-      uint32_t sdUsed = SD_MMC.usedBytes() / (1024 * 1024);
-      uint32_t sdFree = sdSize - sdUsed;
-      resp += "," + String(sdSize);
-      resp += "," + String(sdFree);
-      resp += "," + String(logFileNumber);
-    }//if (SD card present
-    resp += "," + String(SPIFFS.totalBytes()/1024.0, 1);
-    uint32_t freeSpace = SPIFFS.totalBytes() - SPIFFS.usedBytes();
-    resp += "," + String(freeSpace/1024.0, 1);
+  uint8_t chrgStat = getChargingStatus();
+  res->print(',');
+  if      (chrgStat == 0) res->print("Charging");
+  else if (chrgStat == 1) res->print("Fully Charged");
+  else                    res->print("Discharging");
 
-    // LoRaFreq,LoRaBand,LoRaSF,LastPingTime,LastPacket,LastRSSI,LastSNR,LastFreqErr,LastPcktValid,AFCOn (10)
-    resp += "," + String(freqOpts[freqSelected],2);
-    resp += "," + String(bandwidthOpts[bandwidthSelected],2);
-    resp += "," + String(spreadOpts[spreadSelected]);
-    resp += "," + String(millis()-rfmLastRFReceived);
-    resp += "," + String(byteArrayToHexString(rfmLastPacket, RFM_PACKET_SIZE));
-    resp += "," + String(rfmLastRSSI);
-    resp += "," + String(rfmLastSNR);
-    resp += "," + String(rfmLastFreqErr);
-    resp += "," + ((rfmLastPacketValid) ? String("Yes") : String("NO"));
-    resp += "," + ((false) ? String("Yes") : String("NO"));
+  res->print(',');
+  res->print(usbDataOnly ? "Data Only" : "Power + Data");
 
-    // RcktSats,RcktLat,RcktLon,RcktAltm,RcktStatus,RcktCallsign (6)
-    resp += "," + String(rocketGPSSats);
-    resp += "," + String(rocketGPSLat/1000000.0, 6);
-    resp += "," + String(rocketGPSLon/1000000.0, 6);
-    resp += "," + String(rocketAltitude);
-    resp += "," + String(rocketStatus, BIN);
-    resp += "," + String((const char*)rocketCallsign);
+  // FixAge,NumSat,Lat,Lon,Alt,Timestamp
+  res->print(','); res->print(gps.location.age());
+  res->print(','); res->print(gps.satellites.value());
+  res->print(','); res->print(gps.location.lat(), 6);
+  res->print(','); res->print(gps.location.lng(), 6);
+  res->print(','); res->print(gps.altitude.meters());
+  res->print(','); res->print(1);
 
-    resp += "," + String(curFreqOffset);
+  // SDPresent,SDCapacity,SDAvailable,LogID,SPIFFSSize,SPIFFSFree
+  if (SD_MMC.cardType() == CARD_NONE) {
+    res->print(",No,?,?,?");
+  } else {
+    res->print(",Yes");
+    uint32_t sdSize = SD_MMC.totalBytes() / (1024 * 1024);
+    uint32_t sdUsed = SD_MMC.usedBytes()  / (1024 * 1024);
+    uint32_t sdFree = sdSize - sdUsed;
+    res->print(','); res->print(sdSize);
+    res->print(','); res->print(sdFree);
+    res->print(','); res->print(logFileNumber);
+  }
+  res->print(','); res->print(SPIFFS.totalBytes() / 1024.0, 1);
+  uint32_t freeSpace = SPIFFS.totalBytes() - SPIFFS.usedBytes();
+  res->print(','); res->print(freeSpace / 1024.0, 1);
 
-    resp += "," + String(core0FreeStack);
-    resp += "," + String(core0LoopTime);
+  // LoRaFreq,LoRaBand,LoRaSF,LastPingTime,LastPacket,LastRSSI,LastSNR,LastFreqErr,LastPcktValid,AFCOn
+  res->print(','); res->print(freqOpts[freqSelected], 2);
+  res->print(','); res->print(bandwidthOpts[bandwidthSelected], 2);
+  res->print(','); res->print(spreadOpts[spreadSelected]);
+  res->print(','); res->print(millis() - rfmLastRFReceived);
 
-    resp += "," + String(rocketVelocity);
-    
-    request->send(200, "text/plain", resp);
-  });
+  // Hex dump without building a String
+  res->print(',');
+  for (int i = 0; i < RFM_PACKET_SIZE; i++) {
+    uint8_t b = rfmLastPacket[i];
+    const char hex[] = "0123456789ABCDEF";
+    res->print(hex[b >> 4]);
+    res->print(hex[b & 0x0F]);
+  }
+
+  res->print(','); res->print(rfmLastRSSI);
+  res->print(','); res->print(rfmLastSNR);
+  res->print(','); res->print(rfmLastFreqErr);
+  res->print(','); res->print(rfmLastPacketValid ? "Yes" : "NO");
+  res->print(','); res->print(false ? "Yes" : "NO"); // AFCOn placeholder
+
+  // RcktSats,RcktLat,RcktLon,RcktAltm,RcktStatus,RcktCallsign
+  res->print(','); res->print(rocketGPSSats);
+  res->print(','); res->print(rocketGPSLat / 1000000.0, 6);
+  res->print(','); res->print(rocketGPSLon / 1000000.0, 6);
+  res->print(','); res->print(rocketAltitude);
+  res->print(','); res->print(rocketStatus, BIN);
+  res->print(','); res->print((const char*)rocketCallsign);
+
+  res->print(','); res->print(curFreqOffset);
+  res->print(','); res->print(core0FreeStack);
+  res->print(','); res->print(core0LoopTime);
+  res->print(','); res->print(rocketVelocity);
+
+  request->send(res);
+});
+
 
   // Route to load style.css file
   webServer.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -181,7 +184,7 @@ void configWebServer() {
   // Route for downloading logs
   webServer.on("/log", HTTP_GET, [](AsyncWebServerRequest *request){
     // Ensure valid request
-    AsyncWebParameter* p = request->getParam(0);
+    const AsyncWebParameter* p = request->getParam(0);
     if (p->name() == "id") {
       // Generate requested log file name
       String filename = "/logs/Kuhglocke_Log" + String(p->value()) +".txt";
@@ -214,7 +217,7 @@ void configWebServer() {
   // Route for changing radio settings
   webServer.on("/RadioConfig", HTTP_GET, [](AsyncWebServerRequest *request){
     // Ensure valid request
-    AsyncWebParameter* p = request->getParam(0);
+    const AsyncWebParameter* p = request->getParam(0);
 
     if (p->name() == "bandwidth") {
       uint16_t bwInd = p->value().toInt();

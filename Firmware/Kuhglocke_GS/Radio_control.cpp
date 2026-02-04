@@ -94,9 +94,7 @@ void onRFMReceive() {
   int state = radio.readData(rfmPayload, RFM_PACKET_SIZE);
 
   // Clone data to global array
-  for (uint8_t i=0; i<RFM_PACKET_SIZE; i++) {
-    rfmLastPacket[i] = rfmPayload[i];
-  }//for
+  memcpy(rfmLastPacket, rfmPayload, RFM_PACKET_SIZE);
 
   //byteArrayToHexString(rfmPayload, RFM_PACKET_SIZE)
   //writeToSDLog("")
@@ -155,23 +153,26 @@ void onRFMReceive() {
   calculateRocketVelocity();
 
   // Log to SD card
-  String resp = String("RocketPacket: ");
-  resp += String(millis()-rfmLastRFReceived);
-  resp += "," + String(byteArrayToHexString(rfmLastPacket, RFM_PACKET_SIZE));
-  resp += "," + String(rfmLastRSSI);
-  resp += "," + String(rfmLastSNR);
-  resp += "," + String(rfmLastFreqErr);
-  resp += "," + ((rfmLastPacketValid) ? String("Yes") : String("NO"));
-  writeToSDLog(resp);
+  char logBuf[256];
+snprintf(logBuf,sizeof(logBuf),"RocketPacket:%lu,%s,%d,%d,%ld,%s",
+  millis() - rfmLastRFReceived,
+  byteArrayToHexString(rfmLastPacket, RFM_PACKET_SIZE).c_str(),
+  rfmLastRSSI,
+  rfmLastSNR,
+  rfmLastFreqErr,
+  rfmLastPacketValid ? "Yes" : "NO");
 
-  String resp2 = String("RocketData: ");
-  resp2 += String(rocketGPSSats);
-  resp2 += "," + String(rocketGPSLat/1000000.0, 6);
-  resp2 += "," + String(rocketGPSLon/1000000.0, 6);
-  resp2 += "," + String(rocketAltitude);
-  resp2 += "," + String(rocketVelocity);
-  resp2 += "," + String(rocketStatus, BIN);
-  
-  writeToSDLog(resp2);
+writeToSDLog(String(logBuf));
+
+  char logBuf2[256];
+
+snprintf(logBuf2, sizeof(logBuf2),"RocketData:%u,%.6f,%.6f,%ld,%.2f,%u",
+         rocketGPSSats,
+         rocketGPSLat / 1e6,
+         rocketGPSLon / 1e6,
+         rocketAltitude,
+         rocketVelocity,
+         rocketStatus); 
+writeToSDLog(String(logBuf2));
  
 }//onRFMReceive()

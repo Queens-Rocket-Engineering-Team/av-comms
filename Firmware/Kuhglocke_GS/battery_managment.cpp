@@ -1,4 +1,6 @@
 #include "battery_managment.h"
+#include "Global.h"
+
 #include "libraries.h"
 /*
  * Returns the estimated PSU voltage

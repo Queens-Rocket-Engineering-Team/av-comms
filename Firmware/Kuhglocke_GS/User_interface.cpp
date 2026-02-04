@@ -54,8 +54,8 @@ bool makeNextSDLog() {
   // Create new log file
   logFile = SD_MMC.open("/logs/Kuhglocke_Log" + String(id) + ".txt", FILE_WRITE);
   if (!logFile) {
-    return false;
     Serial.println("[WARN] Unable to open log file for writing");
+    return false;
   }//if
 
   return true;
@@ -68,13 +68,21 @@ bool makeNextSDLog() {
  * If no SD card is present, function
  * will silently & gracefully fail.
  */
-bool writeToSDLog(String txt) {
-  String output = "[" + String(millis()) + "] ";
-  output += txt;
-  bool r = logFile.println(output);
-  logFile.flush();
+bool writeToSDLog(const String& txt) {
+  if (!logFile) return false;
+
+  logFile.print('[');
+  logFile.print(millis());
+  logFile.print("] ");
+  bool r = logFile.println(txt);
+
+  static uint32_t lastFlush = 0;
+  if (millis() - lastFlush > 2000) {  // flush every 2s
+    logFile.flush();
+    lastFlush = millis();
+  }
   return r;
-}//writeToSDLog()
+}
 
 void handleLEDs() {
   // Power LED remains constant
@@ -124,12 +132,6 @@ void handleLEDs() {
     setRGB(2, 0,0,0, true);
   }//if
 
-  // ONBOARD GPS INDICATOR TESTING (TODO: REMOVE)
-  //if (gps.satellites.value() > 3) {
-  //  setRGB(3, 0,128,128); //GPS FIX ACHIEVED
-  //} else {
-  //  setRGB(3, 32,0,0);
-  //}
 
   // SRAD OKAY LIGHT
   if (isRFMConnected()) {

@@ -29,6 +29,6 @@ int32_t getDistanceToRocket();
 void calculateRocketVelocity();
 
 // External function prototypes (from main .ino file)
-bool writeToSDLog(String txt);
+bool writeToSDLog(const String& txt);
 
 #endif // GPS_H
