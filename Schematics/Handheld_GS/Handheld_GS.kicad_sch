@@ -5,11 +5,12 @@
 	(uuid "c05415e4-e0f1-401f-8cdb-c17b99a31b41")
 	(paper "B")
 	(title_block
-		(title "Kuhglocke Ground Station")
+		(title "QRET 25-26 SRAD Handheld Ground Station")
 		(date "2024-05-29")
-		(rev "V1.0")
+		(rev "V0.2.0")
+		(company "Queen's Rocket Engineering Team")
+		(comment 1 "Contributors: Kennan Bays, Tristan Alderson, Ethan Toste")
 		(comment 3 "GRID: 1.27mm")
-		(comment 4 "Contributors: Kennan Bays")
 	)
 	(lib_symbols
 		(symbol "CONN4_LPPB022NFSS-RC_SUL_SOCKET:LPPB022NFSS-RC"
