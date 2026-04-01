@@ -1,5 +1,5 @@
-# Avionics Power Deliver (Communications Module, Ground Station, etc)
-> 2023-2025 Season - Communications Projects
+# Avionics Telemetry (Communications Module, Ground Station, Live Camera etc)
+> 2023-2025 Season - Telemetry Projects
 
 -  Repo contains board's **firmware**, **schematics**, and related **documentation and datasheets**.
 -  The **Main** branch contains current functional hardware/software
@@ -10,4 +10,3 @@
 - [`/Schematics`](./Schematics/) : PCB design files (KiCad V8)  
 - [`/Firmware`](./Firmware/) : Arduino C/C++ code (for STM32)
 - [`/Datasheets`](./Datasheets/) : Datasheets and reference materials  
-- [`.gitignore`](./.gitignore) : Build and temporary files excluded
