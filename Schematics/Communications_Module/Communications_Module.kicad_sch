@@ -15290,6 +15290,7 @@
 	)
 	(label "Antenna"
 		(at 61.595 31.115 0)
+		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -15300,6 +15301,7 @@
 	)
 	(label "RF GND"
 		(at 61.595 36.195 0)
+		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -17220,6 +17222,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 250.825 131.445 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "482fe558-a595-4f0d-a933-ec127f3a70d4")
 		)
@@ -17649,6 +17660,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 269.875 253.365 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "893a5cc3-4c1e-4946-b6e5-50245ba62939")
 		)
@@ -17717,7 +17737,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://datasheet.lcsc.com/lcsc/2204281430_Guangdong-Hottech-1N5819WS_C191023.pdf"
+		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/1N5819WS.pdf"
 			(at 207.645 245.745 0)
 			(effects
 				(font
@@ -17736,6 +17756,15 @@
 			)
 		)
 		(property "JLCPCB" "C191023"
+			(at 207.645 245.745 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 207.645 245.745 0)
 			(effects
 				(font
@@ -17899,6 +17928,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 50.165 234.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "be67a5d5-854b-47c1-b3db-5f21c3ade349")
 		)
@@ -17949,7 +17987,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/LoRa126XF30_V2.4.pdf"
 			(at 52.705 46.355 0)
 			(effects
 				(font
@@ -17959,6 +17997,24 @@
 			)
 		)
 		(property "Description" ""
+			(at 48.895 42.545 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" "${KIPRJMOD}/../../Datasheets/DS_SX1261-2_V1.2.pdf"
+			(at 48.895 42.545 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Digikey" ""
 			(at 48.895 42.545 0)
 			(effects
 				(font
@@ -18059,7 +18115,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/100R_FB.pdf"
 			(at 267.97 29.21 0)
 			(effects
 				(font
@@ -18079,6 +18135,15 @@
 		)
 		(property "JLCPCB" "C1015"
 			(at 267.97 29.21 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
+			(at 267.97 29.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18236,6 +18301,15 @@
 			)
 		)
 		(property "JLCPCB" "C8304"
+			(at 172.72 130.175 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 172.72 130.175 0)
 			(effects
 				(font
@@ -18741,6 +18815,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 22.225 247.65 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "A1"
 			(uuid "f15b23a6-1124-458d-98dc-fcd5aeed37be")
 		)
@@ -19008,6 +19091,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 35.56 29.845 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "da81bb02-d984-4e39-bff9-fea4a2b60bc3")
 		)
@@ -19079,6 +19171,15 @@
 			)
 		)
 		(property "Digikey" "5503-TPM8837C-SO1RCT-ND"
+			(at 219.075 249.555 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 219.075 249.555 0)
 			(effects
 				(font
@@ -19179,6 +19280,15 @@
 			)
 		)
 		(property "JLCPCB" "C22978"
+			(at 38.735 213.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 38.735 213.36 0)
 			(effects
 				(font
@@ -19324,6 +19434,15 @@
 			)
 		)
 		(property "Digikey" "732-8411-1-ND"
+			(at 177.165 32.385 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 177.165 32.385 0)
 			(effects
 				(font
@@ -19482,6 +19601,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 266.065 131.445 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "5f900737-2be3-427e-8bd1-874982cac020")
 		)
@@ -19551,6 +19679,15 @@
 		)
 		(property "JLCPCB" "C25804"
 			(at 395.605 168.91 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
+			(at 395.605 168.91 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19628,6 +19765,15 @@
 			)
 		)
 		(property "JLCPCB" "C2869734"
+			(at 153.67 213.995 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 153.67 213.995 0)
 			(effects
 				(font
@@ -19888,6 +20034,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 307.975 60.325 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "c3881aa5-c793-4588-9e38-831cd929f3f1")
 		)
@@ -19985,6 +20140,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 31.75 177.165 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "0340bd5e-5b8c-42d7-95e0-b983f711d96d")
 		)
@@ -20051,6 +20215,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 373.38 163.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 373.38 163.83 0)
 			(effects
 				(font
@@ -20239,6 +20412,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 205.105 32.385 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "6d698d9a-b784-4384-8a11-de49e788ab85")
 		)
@@ -20317,6 +20499,15 @@
 		)
 		(property "JLCPCB" "C25804"
 			(at 250.825 92.075 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
+			(at 250.825 92.075 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20445,7 +20636,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://datasheet.lcsc.com/lcsc/2204281430_Guangdong-Hottech-1N5819WS_C191023.pdf"
+		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/1N5819WS.pdf"
 			(at 212.725 245.745 0)
 			(effects
 				(font
@@ -20464,6 +20655,15 @@
 			)
 		)
 		(property "JLCPCB" "C191023"
+			(at 212.725 245.745 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 212.725 245.745 0)
 			(effects
 				(font
@@ -20556,6 +20756,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 299.085 80.645 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "4bb550e6-70b6-4f2a-8670-8c2d646c2fb6")
 		)
@@ -20635,6 +20844,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 126.365 211.455 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 126.365 211.455 0)
 			(effects
 				(font
@@ -20913,6 +21131,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 50.165 213.36 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "15d7360a-0427-4708-a308-41f77e3db65b")
 		)
@@ -20983,6 +21210,15 @@
 		)
 		(property "JLCPCB" "C14663"
 			(at 63.5 80.645 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
+			(at 63.5 80.645 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21139,6 +21375,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 55.88 132.715 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "4e64409a-2ae0-45ea-b088-8cb89253b888")
 		)
@@ -21221,6 +21466,15 @@
 			)
 		)
 		(property "JLCPCB" "C14663"
+			(at 355.6 201.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 355.6 201.93 0)
 			(effects
 				(font
@@ -21401,6 +21655,15 @@
 			)
 		)
 		(property "JLCPCB" "C14663"
+			(at 400.05 201.93 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 400.05 201.93 0)
 			(effects
 				(font
@@ -21771,6 +22034,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 124.46 253.365 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "bb8d5dd7-454d-4de0-ab0b-5edaa9465b3f")
 		)
@@ -21915,6 +22187,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 153.67 252.095 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "df135483-1c2a-4d87-ada2-72271448e259")
 		)
@@ -22003,6 +22284,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 396.24 66.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "b5da1500-004f-40b0-b0ab-f19b5fc6f248")
 		)
@@ -22073,6 +22363,15 @@
 			)
 		)
 		(property "JLCPCB" "C23186"
+			(at 42.545 237.49 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 42.545 237.49 0)
 			(effects
 				(font
@@ -22165,6 +22464,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 211.455 257.175 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "8263d8fc-d1bf-48b6-8314-e921a436360d")
 		)
@@ -22232,6 +22540,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 29.21 199.39 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 29.21 199.39 0)
 			(effects
 				(font
@@ -22373,6 +22690,15 @@
 			)
 		)
 		(property "JLCPCB" "C22843"
+			(at 40.005 252.73 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 40.005 252.73 0)
 			(effects
 				(font
@@ -22524,6 +22850,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 71.755 234.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "1dce48b1-76e2-4ff2-bca1-f6dc534d49a8")
 		)
@@ -22593,6 +22928,15 @@
 			)
 		)
 		(property "JLCPCB" "C318884"
+			(at 252.095 169.545 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 252.095 169.545 0)
 			(effects
 				(font
@@ -22746,6 +23090,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 288.925 80.645 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "787c7ec7-1002-4479-bbb5-c9af26b2495a")
 		)
@@ -22840,6 +23193,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 258.445 127.635 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "040233ce-cec5-470d-9a0e-539fdb8427bf")
 		)
@@ -22916,6 +23278,15 @@
 			)
 		)
 		(property "JLCPCB" "C1525"
+			(at 194.945 32.385 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 194.945 32.385 0)
 			(effects
 				(font
@@ -23140,6 +23511,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 257.81 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "c5780d7d-5d20-4bc0-9152-dfcbbf171908")
 		)
@@ -23275,6 +23655,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 157.48 140.335 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "18b2fb9e-6bf5-45d8-9b3a-f083e06cb41c")
 		)
@@ -23342,6 +23731,15 @@
 			)
 		)
 		(property "JLCPCB" "C484409"
+			(at 378.46 212.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 378.46 212.09 0)
 			(effects
 				(font
@@ -23438,6 +23836,15 @@
 			)
 		)
 		(property "JLCPCB" "C23186"
+			(at 42.545 234.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 42.545 234.95 0)
 			(effects
 				(font
@@ -23603,6 +24010,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 26.035 205.74 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "460ea841-26fb-4089-a5d1-f0ad047f068c")
 		)
@@ -23747,6 +24163,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 55.88 151.765 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "a913a7bc-a21f-48e5-8c01-46c9134f56fe")
 		)
@@ -23831,6 +24256,15 @@
 		)
 		(property "JLCPCB" "C22984"
 			(at 395.605 160.02 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
+			(at 395.605 160.02 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23981,6 +24415,15 @@
 			)
 		)
 		(property "JLCPCB" "C25804"
+			(at 17.78 93.345 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 17.78 93.345 0)
 			(effects
 				(font
@@ -24199,6 +24642,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 124.46 215.265 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "945181c2-bc1a-495b-9fe1-fd026a0d65bf")
 		)
@@ -24269,6 +24721,15 @@
 			)
 		)
 		(property "JLCPCB" "C1525"
+			(at 215.265 32.385 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 215.265 32.385 0)
 			(effects
 				(font
@@ -24425,6 +24886,15 @@
 			)
 		)
 		(property "JLCPCB" "C28323"
+			(at 278.13 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 278.13 33.02 0)
 			(effects
 				(font
@@ -24644,6 +25114,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 69.215 23.495 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "09793965-c9ab-40f6-b2bd-1a2598a4f009")
 		)
@@ -24721,6 +25200,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 280.035 169.545 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "9c49382f-3fbc-481d-b0c8-17b98b6af945")
 		)
@@ -24791,6 +25279,15 @@
 			)
 		)
 		(property "Digikey" "1568-COM-16347CT-ND"
+			(at 403.86 39.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 403.86 39.37 0)
 			(effects
 				(font
@@ -25020,6 +25517,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 26.67 153.035 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "904bc48c-b433-4db3-986f-894e62c8b8ba")
 		)
@@ -25052,7 +25558,7 @@
 				)
 			)
 		)
-		(property "Value" "680R"
+		(property "Value" "680"
 			(at 384.81 66.04 90)
 			(effects
 				(font
@@ -25088,6 +25594,15 @@
 			)
 		)
 		(property "JLCPCB" "C23228"
+			(at 384.81 66.04 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 384.81 66.04 0)
 			(effects
 				(font
@@ -25175,6 +25690,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 16.51 36.195 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "5f59888c-897b-4476-8772-6aacc7f827b9")
 		)
@@ -25246,6 +25770,15 @@
 			)
 		)
 		(property "JLCPCB" "C6568"
+			(at 324.485 92.075 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 324.485 92.075 0)
 			(effects
 				(font
@@ -25504,6 +26037,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 244.475 173.355 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "eced7644-451f-4036-847c-19be72f536ea")
 		)
@@ -25650,6 +26192,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 288.925 73.025 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "e329d821-c679-420c-a523-1484bcb7cdd4")
 		)
@@ -25746,6 +26297,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 383.54 39.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "17066a13-872d-47b8-9c6c-c1218cd2efec")
 		)
@@ -25822,6 +26382,15 @@
 			)
 		)
 		(property "JLCPCB" "C57112"
+			(at 245.11 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 245.11 33.02 0)
 			(effects
 				(font
@@ -26058,6 +26627,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 153.67 233.045 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "d05287cd-5bd7-411f-823d-855584f4b6f7")
 		)
@@ -26141,6 +26719,15 @@
 			)
 		)
 		(property "JLCPCB" "C14663"
+			(at 250.825 104.775 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 250.825 104.775 0)
 			(effects
 				(font
@@ -26359,6 +26946,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 59.69 212.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 59.69 212.09 0)
 			(effects
 				(font
@@ -26788,6 +27384,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 241.935 98.425 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "55b9777c-90fd-4ed6-86d1-225f48c534d7")
 		)
@@ -26849,6 +27454,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 157.48 137.795 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 157.48 137.795 0)
 			(effects
 				(font
@@ -26923,6 +27537,15 @@
 			)
 		)
 		(property "JLCPCB" "C6186"
+			(at 62.865 231.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 62.865 231.14 0)
 			(effects
 				(font
@@ -27281,6 +27904,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 29.21 29.845 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "a4271928-05cc-48b4-8335-c4a5f4a37770")
 		)
@@ -27352,6 +27984,15 @@
 			)
 		)
 		(property "JLCPCB" "C25804"
+			(at 25.4 93.345 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 25.4 93.345 0)
 			(effects
 				(font
@@ -27719,6 +28360,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 402.59 165.735 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "70848690-ee22-4214-879d-5f8a30e430c5")
 		)
@@ -27786,6 +28436,15 @@
 			)
 		)
 		(property "JLCPCB" "C1525"
+			(at 184.785 32.385 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 184.785 32.385 0)
 			(effects
 				(font
@@ -27918,7 +28577,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "http://www.winbond.com/resource-files/w25q128jv_dtr%20revc%2003272018%20plus.pdf"
+		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/W25Q128JV.pdf"
 			(at 54.61 94.615 0)
 			(effects
 				(font
@@ -27937,6 +28596,15 @@
 			)
 		)
 		(property "JLCPCB" "C97521"
+			(at 54.61 94.615 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 54.61 94.615 0)
 			(effects
 				(font
@@ -28106,6 +28774,15 @@
 				(hide yes)
 			)
 		)
+		(property "Datasheets2" ""
+			(at 124.46 234.315 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "4982901b-8386-4b00-b039-f190c40c09b3")
 		)
@@ -28167,6 +28844,15 @@
 			)
 		)
 		(property "Description" ""
+			(at 190.5 117.475 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 190.5 117.475 0)
 			(effects
 				(font
@@ -28242,6 +28928,15 @@
 			)
 		)
 		(property "JLCPCB" "C96446"
+			(at 328.295 56.515 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 328.295 56.515 0)
 			(effects
 				(font
@@ -28338,6 +29033,15 @@
 			)
 		)
 		(property "JLCPCB" "C15849"
+			(at 26.67 133.985 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheets2" ""
 			(at 26.67 133.985 0)
 			(effects
 				(font
