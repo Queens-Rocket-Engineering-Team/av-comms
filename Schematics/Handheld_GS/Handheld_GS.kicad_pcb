@@ -945,7 +945,7 @@
 			(pintype "passive")
 			(uuid "5382ba85-e874-4102-888d-c84cb7868cce")
 		)
-		(model "${KICAD7_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_Push_1P1T_XKB_TS-1187A.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_SPST_TL3342.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -1700,6 +1700,17 @@
 			(pinfunction "GND")
 			(pintype "power_out")
 			(uuid "8d9f6fdd-a546-404d-95cc-7b2a838a66f6")
+		)
+		(model "${KIPRJMOD}/models/ES1_ESOP-8-F__TPK.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
 		)
 	)
 	(footprint "Capacitor_SMD:C_0603_1608Metric"
@@ -2649,6 +2660,17 @@
 				(xyz 0 0 0)
 			)
 		)
+		(model "${KICAD8_3DMODEL_DIR}/Inductor_SMD.3dshapes/L_APV_ANR4030.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
 	)
 	(footprint "footprints:MAX98357_QFN50P300X300X80-17N"
 		(layer "F.Cu")
@@ -3095,6 +3117,28 @@
 			(pintype "power_in")
 			(solder_mask_margin 0.102)
 			(uuid "30ec5c50-57b6-4e30-b69e-6dd796b78388")
+		)
+		(model "${KICAD8_3DMODEL_DIR}/Package_DFN_QFN.3dshapes/DFN-8-1EP_3x3mm_P0.5mm_EP1.66x2.38mm.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+		(model "${KICAD8_3DMODEL_DIR}/Package_DFN_QFN.3dshapes/QFN-16-1EP_3x3mm_P0.5mm_EP1.8x1.8mm.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
 		)
 	)
 	(footprint "footprints:USB_C_DB-108PWB"
@@ -7489,7 +7533,7 @@
 			)
 		)
 		(property "Footprint" "LMR66100:SC-70-6_Handsoldering"
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "c3e3a955-2b9e-434b-8292-07253c92f17c")
@@ -7501,7 +7545,7 @@
 			)
 		)
 		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/lm66100.pdf"
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "f769cc41-ecd6-499c-9308-1063487be522")
@@ -7513,7 +7557,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "bcd29c64-7ef6-4152-8dbe-fd289309c4dc")
@@ -8520,7 +8564,7 @@
 			(pintype "bidirectional")
 			(uuid "b08e7bad-9d34-4ed8-8452-76bf9051395a")
 		)
-		(model "${KIPRJMOD}/models/RFM95W-915S2.step"
+		(model "${KIPRJMOD}/models/RFM95W-915S2--3DModel-STEP-56544.STEP"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -9667,6 +9711,17 @@
 				(xyz 0 0 0)
 			)
 		)
+		(model "${KIPRJMOD}/models/pcb_smafra_ht.stp"
+			(offset
+				(xyz 3.5 -7.5 -3.5)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 0 -180)
+			)
+		)
 	)
 	(footprint "footprints:MicroSD_MSD-1-A"
 		(layer "F.Cu")
@@ -10212,6 +10267,17 @@
 			(pinfunction "SHIELD")
 			(pintype "passive")
 			(uuid "7c034204-5f3b-4769-b211-4c333ee328a8")
+		)
+		(model "${KIPRJMOD}/models/Same_Sky_MSD-3-A.step"
+			(offset
+				(xyz -7.5 -8 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 0 0)
+			)
 		)
 	)
 	(footprint "footprints:HPH2-A-04-UA_PINS"
@@ -11396,7 +11462,7 @@
 			)
 		)
 		(property "Footprint" "footprints:SOIC127P600X175-8N"
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "31cbbc36-ee8f-4ab2-a89a-f30e228c3bd4")
@@ -11408,7 +11474,7 @@
 			)
 		)
 		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/ACS70331.pdf"
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "e74ec328-b624-4254-b681-6c8d6df7d51a")
@@ -11420,7 +11486,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "b31dc11f-ff4a-4541-acd5-b2b0b9a49540")
@@ -11680,6 +11746,17 @@
 			)
 			(rotate
 				(xyz 0 0 -90)
+			)
+		)
+		(model "${KICAD8_3DMODEL_DIR}/Package_SO.3dshapes/HSOP-8-1EP_3.9x4.9mm_P1.27mm_EP2.41x3.1mm.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
 			)
 		)
 	)
@@ -16721,7 +16798,7 @@
 			(pintype "passive")
 			(uuid "1c1dfd24-844c-441b-9933-53670918cd79")
 		)
-		(model "${KICAD7_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_Push_1P1T_XKB_TS-1187A.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_SPST_TL3342.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -18303,7 +18380,7 @@
 			(pintype "passive")
 			(uuid "2334b7fa-8cc0-4e12-a9c1-048df9afc2d3")
 		)
-		(model "${KICAD6_3DMODEL_DIR}/TerminalBlock_TE-Connectivity.3dshapes/TerminalBlock_TE_282834-2_1x02_P2.54mm_Horizontal.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/TerminalBlock_Phoenix.3dshapes/TerminalBlock_Phoenix_MPT-0,5-2-2.54_1x02_P2.54mm_Horizontal.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -20210,7 +20287,7 @@
 			(pintype "passive")
 			(uuid "27f02915-7917-4a6c-8c48-1b1318207e23")
 		)
-		(model "${KICAD7_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_Push_1P1T_XKB_TS-1187A.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_SPST_TL3342.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -22255,6 +22332,17 @@
 					(xy 43.300074 49.73) (xy 42.516299 47.827844) (xy 40.6 47.029926) (xy 38.697844 47.813701) (xy 37.899926 49.73)
 					(xy 38.683701 51.632156) (xy 40.6 52.430074) (xy 42.502156 51.646299)
 				)
+			)
+		)
+		(model "${KIPRJMOD}/models/STEP_YIC31616GMSGG.STEP"
+			(offset
+				(xyz 8 -7 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz -90 0 180)
 			)
 		)
 	)
@@ -24817,7 +24905,7 @@
 			(pintype "passive")
 			(uuid "45c0cfc5-3e8c-44d4-b81e-8d943b090a3f")
 		)
-		(model "${KICAD7_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_Push_1P1T_XKB_TS-1187A.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_SPST_TL3342.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -25715,7 +25803,7 @@
 			(pintype "passive")
 			(uuid "a0cc15fd-5e6a-43ec-b16f-f376f857593c")
 		)
-		(model "${KICAD7_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_Push_1P1T_XKB_TS-1187A.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_SPST_TL3342.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -27784,7 +27872,7 @@
 			(pintype "passive")
 			(uuid "abfbf4c0-ed4e-46d3-9549-b7cd27d05151")
 		)
-		(model "${KICAD7_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_Push_1P1T_XKB_TS-1187A.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_SPST_TL3342.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -29749,7 +29837,7 @@
 			)
 		)
 		(property "Footprint" "Espressif:ESP32-S3-WROOM-1"
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "9083399f-7763-427c-8495-4e2449fb18c3")
@@ -29761,7 +29849,7 @@
 			)
 		)
 		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/esp32-s3-wroom-1_wroom-1u.pdf"
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "b82a3cac-32dc-4140-bf39-f3b29376489c")
@@ -29773,7 +29861,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "b750dab7-1548-468a-96d9-821a94f0c84b")
@@ -30495,6 +30583,17 @@
 			(opacity 0.7500)
 			(offset
 				(xyz -9 -9.75 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+		(model "${KICAD8_3DMODEL_DIR}/RF_Module.3dshapes/ESP32-S3-WROOM-1.wrl"
+			(offset
+				(xyz 0 3 0)
 			)
 			(scale
 				(xyz 1 1 1)
@@ -31767,7 +31866,7 @@
 			(pintype "passive")
 			(uuid "09564334-611f-494d-bb83-373f0908a90c")
 		)
-		(model "${KICAD6_3DMODEL_DIR}/TerminalBlock_TE-Connectivity.3dshapes/TerminalBlock_TE_282834-2_1x02_P2.54mm_Horizontal.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/TerminalBlock_Phoenix.3dshapes/TerminalBlock_Phoenix_MPT-0,5-2-2.54_1x02_P2.54mm_Horizontal.step"
 			(offset
 				(xyz 0 0 0)
 			)
@@ -32252,7 +32351,7 @@
 			)
 		)
 		(property "Footprint" "Package_SON:Texas_DRC0010J_ThermalVias"
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "f2133dde-f324-40f7-846c-6b9d18d80f28")
@@ -32264,7 +32363,7 @@
 			)
 		)
 		(property "Datasheet" "${KIPRJMOD}/../../Datasheets/tps63000.pdf"
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "818449db-21e6-49ff-89c2-ff7e451fbc3e")
@@ -32276,7 +32375,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 0 0 -90)
+			(at 0 0 90)
 			(layer "F.Fab")
 			(hide yes)
 			(uuid "abc6f130-7417-4e55-a9b4-f2e8ff2cb0c1")
@@ -32693,7 +32792,7 @@
 			(pintype "passive")
 			(uuid "c7c48e45-6043-4d35-a4a4-a3589c493f9b")
 		)
-		(model "${KICAD6_3DMODEL_DIR}/Package_SON.3dshapes/Texas_DRC0010J.wrl"
+		(model "${KICAD8_3DMODEL_DIR}/Package_SON.3dshapes/Texas_S-PVSON-N10.step"
 			(offset
 				(xyz 0 0 0)
 			)
