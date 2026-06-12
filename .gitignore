@@ -46,4 +46,4 @@ fp-info-cache
 #vscode config
 *.vscode
 
-*.pio
+.pio
