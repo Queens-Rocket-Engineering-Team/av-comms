@@ -17,10 +17,6 @@ constexpr uint32_t kCanBaud    = 500000U;
 constexpr uint32_t kSerialBaud = 38400U;
 }  // namespace node
 
-// CAN peripheral handle — CAN1 is a HAL macro (reinterpret_cast pointer), so it
-// cannot be constexpr; it stays a #define.
-#define NODE_CAN_BUS CAN1
-
 // --- Node liveness tracker ---
 // v0.6.x dropped the library's built-in AimNodeHealth; Comms keeps a minimal
 // local table so the console can report which nodes are on the bus. Any valid
