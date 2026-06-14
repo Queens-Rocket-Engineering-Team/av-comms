@@ -70,7 +70,21 @@ const NodeLiveness* nodeLivenessTable(uint8_t* countOut) {
   return s_liveness;
 }
 
+static bool s_lowPower = false;
+
 void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
   nodeLivenessOnRx(m.source, nowMs);
-  // TODO: forward frame over LoRa when the radio driver is wired in.
+  
+  if (m.cls == aim::Class::Event && m.subject == aim::subject::LowPower) {
+    s_lowPower = (m.b[0] == 1U);
+    LOG_INFO("Comms low power state updated: %d", s_lowPower);
+  }
+}
+
+aim::NodeState nodeCurrentState() {
+  return aim::NodeState::Nominal;
+}
+
+uint16_t nodeErrorBits() {
+  return 0U;
 }

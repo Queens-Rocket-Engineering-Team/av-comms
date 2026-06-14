@@ -36,4 +36,7 @@ void nodeLivenessInit(uint32_t nowMs);
 void nodeLivenessOnRx(aim::Source source, uint32_t nowMs);
 const NodeLiveness* nodeLivenessTable(uint8_t* countOut);
 
+aim::NodeState nodeCurrentState();
+uint16_t nodeErrorBits();
+
 #endif  // NODE_H
