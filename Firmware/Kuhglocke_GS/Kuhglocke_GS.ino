@@ -55,12 +55,12 @@
 
 void setup() {
   // Configure pinmodes
-  pinMode(DISABLE_5V_PIN, OUTPUT);
-  pinMode(DB_LED_PIN, OUTPUT);
-  pinMode(GPS_RESET_PIN, OUTPUT);
-  digitalWrite(GPS_RESET_PIN, HIGH); //TODO: NESSESARY??
-  pinMode(MENU_BTNS_PIN, INPUT);
-  pinMode(CHRG_STAT_PIN, INPUT);
+  pinMode(pins::kDisable5v, OUTPUT);
+  pinMode(pins::kDebugLed, OUTPUT);
+  pinMode(pins::kGpsReset, OUTPUT);
+  digitalWrite(pins::kGpsReset, HIGH); //TODO: NESSESARY??
+  pinMode(pins::kMenuBtns, INPUT);
+  pinMode(pins::kChrgStat, INPUT);
   analogReadResolution(12);
 
   // Ensure USB mode is PWR+DATA by default
@@ -77,8 +77,8 @@ void setup() {
   Serial.begin(USB_BAUD);
 
   // Prepare SPI busses
-  epdSPI.begin(EINK_SCK_PIN, EINK_MISO_PIN, EINK_MOSI_PIN, EINK_CS_PIN);
-  rfmSPI.begin(RF_SCK_PIN, RF_MISO_PIN, RF_MOSI_PIN, RF_CS_PIN);
+  epdSPI.begin(pins::kEinkSck, pins::kEinkMiso, pins::kEinkMosi, pins::kEinkCs);
+  rfmSPI.begin(pins::kRfSck, pins::kRfMiso, pins::kRfMosi, pins::kRfCs);
   pinMode(epdSPI.pinSS(), OUTPUT);
   pinMode(rfmSPI.pinSS(), OUTPUT);
 
@@ -105,11 +105,11 @@ void setup() {
   } while (display.nextPage());
 
   // Configure I2C Bus
-  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+  Wire.begin(pins::kI2cSda, pins::kI2cScl);
   Wire.setClock(I2C_SPEED);
 
   // Initialize MicroSD card (1-bit mode)
-  SD_MMC.setPins(SDMMC_CLK_PIN, SDMMC_CMD_PIN, SDMMC_D0_PIN);
+  SD_MMC.setPins(pins::kSdmmcClk, pins::kSdmmcCmd, pins::kSdmmcD0);
   if (!SD_MMC.begin("/sdcard", true)) {
     Serial.println("[WARN] MicroSD Card Mount Failed");
   } else {
@@ -191,7 +191,7 @@ void loop() {
   handleGPS();
   handleReadSensors();
   handleLEDs();
-  if (analogRead(MENU_BTNS_PIN) > 40) {
+  if (analogRead(pins::kMenuBtns) > 40) {
     setLEDBrightness(255);
 
   } else {

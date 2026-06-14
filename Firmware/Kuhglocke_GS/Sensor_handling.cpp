@@ -111,7 +111,7 @@ int16_t rawReadTempSensor() {
   // For a filtered value, see getAmbTemperature
   // Returns temperature in C (10 = 1.00C)
 
-  Wire.requestFrom(P3T1755_ADDR, 2);
+  Wire.requestFrom((int)pins::kP3t1755Addr, 2);
   if (Wire.available() != 2) {return -999;}//Error indicator
 
   uint8_t b1 = Wire.read();

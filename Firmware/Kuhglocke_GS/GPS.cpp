@@ -48,7 +48,7 @@ int32_t getDistanceToRocket() {
 
 // Configure GPS UART1 Bus
 void gpsInit() {
-  gpsSerial.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN); 
+  gpsSerial.begin(GPS_BAUD, SERIAL_8N1, pins::kGpsRx, pins::kGpsTx); 
 }
 
 /*

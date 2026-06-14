@@ -1,47 +1,58 @@
 #pragma once
+#include <cstdint>
 
-/*
- * Pin definitions for the Kuhglocke ground station (Rev 1.0)
- */
+// pinouts.h — Kuhglocke ground station, Rev 1.0 (ESP32-S3) pin map.
+// Values are MCU-native ESP32 GPIO numbers.
+namespace pins {
 
-#define GPS_TX_PIN 20
-#define GPS_RX_PIN 19
-#define GPS_RESET_PIN 8
+// --- GPS (UART) ---
+constexpr uint8_t kGpsTx    = 20;
+constexpr uint8_t kGpsRx    = 19;
+constexpr uint8_t kGpsReset = 8;
 
-#define MENU_BTNS_PIN 1
-#define ARGB_DATA_PIN 46
-#define DB_LED_PIN ARGB_DATA_PIN //same pin as RGB
+// --- User interface ---
+constexpr uint8_t kMenuBtns = 1;
+constexpr uint8_t kRgbData  = 46;
+constexpr uint8_t kDebugLed = kRgbData;   // same pin as the RGB LED
 
-#define CHRG_STAT_PIN 2
-#define DISABLE_5V_PIN 3
+// --- Power management ---
+constexpr uint8_t kChrgStat  = 2;
+constexpr uint8_t kDisable5v = 3;
 
-#define RF_DIO2_PIN 4
-#define RF_DIO0_PIN 5
-#define RF_DIO1_PIN 6
-#define RF_RESET_PIN 7
-#define RF_MOSI_PIN 17
-#define RF_MISO_PIN 18
-#define RF_CS_PIN 15
-#define RF_SCK_PIN 16
+// --- LoRa radio (SPI + DIO) ---
+constexpr uint8_t kRfDio2  = 4;
+constexpr uint8_t kRfDio0  = 5;
+constexpr uint8_t kRfDio1  = 6;
+constexpr uint8_t kRfReset = 7;
+constexpr uint8_t kRfMosi  = 17;
+constexpr uint8_t kRfMiso  = 18;
+constexpr uint8_t kRfCs    = 15;
+constexpr uint8_t kRfSck   = 16;
 
-#define EINK_RESET_PIN 9
-#define EINK_DC_PIN 10
-#define EINK_CS_PIN 11
-#define EINK_SCK_PIN 12
-#define EINK_MOSI_PIN 13
-#define EINK_MISO_PIN 42
-#define EINK_BUSY_PIN 40
+// --- E-ink display (SPI + control) ---
+constexpr uint8_t kEinkReset = 9;
+constexpr uint8_t kEinkDc    = 10;
+constexpr uint8_t kEinkCs    = 11;
+constexpr uint8_t kEinkSck   = 12;
+constexpr uint8_t kEinkMosi  = 13;
+constexpr uint8_t kEinkMiso  = 42;
+constexpr uint8_t kEinkBusy  = 40;
 
-#define SPK_I2S_LRCLK_PIN 14
-#define SPK_I2S_DIN_PIN 21
-#define SPK_I2S_BCLK_PIN 38
-#define SPK_ON_PIN 41
+// --- Speaker (I2S) ---
+constexpr uint8_t kSpkI2sLrclk = 14;
+constexpr uint8_t kSpkI2sDin   = 21;
+constexpr uint8_t kSpkI2sBclk  = 38;
+constexpr uint8_t kSpkOn       = 41;
 
-#define SDMMC_CMD_PIN 35
-#define SDMMC_CLK_PIN 36
-#define SDMMC_D0_PIN 37
+// --- SD card (SDMMC) ---
+constexpr uint8_t kSdmmcCmd = 35;
+constexpr uint8_t kSdmmcClk = 36;
+constexpr uint8_t kSdmmcD0  = 37;
 
-#define I2C_SCL_PIN 47
-#define I2C_SDA_PIN 48
-#define NAU7802_ADDR 0x2A
-#define P3T1755_ADDR 0x48
+// --- Sensor I2C ---
+constexpr uint8_t kI2cScl      = 47;
+constexpr uint8_t kI2cSda      = 48;
+constexpr uint8_t kNau7802Addr = 0x2A;   // ADC
+constexpr uint8_t kP3t1755Addr = 0x48;   // temperature sensor
+
+}  // namespace pins

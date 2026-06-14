@@ -84,7 +84,7 @@ uint8_t voltToPercent(uint16_t mv) {
  * 2 = Disabled (on battery)
  */
 uint8_t getChargingStatus() {
-  uint16_t chrgStat = analogRead(CHRG_STAT_PIN);
+  uint16_t chrgStat = analogRead(pins::kChrgStat);
   if (chrgStat < 200) {
     // 0.00V = Charging
     return 0;

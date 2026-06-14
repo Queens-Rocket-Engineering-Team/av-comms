@@ -89,17 +89,17 @@ TinyGPSPlus gps;
 HardwareSerial gpsSerial(1);
 
 // RGB LEDs
- Adafruit_NeoPixel rgbLEDs(NUM_RGB_LEDS, ARGB_DATA_PIN, NEO_GRB + NEO_KHZ800);
+ Adafruit_NeoPixel rgbLEDs(NUM_RGB_LEDS, pins::kRgbData, NEO_GRB + NEO_KHZ800);
 
 // E-paper Display Objects (pick class/driver)
 SPIClass epdSPI(FSPI);
 GxEPD2_BW<GxEPD2_213_B74, GxEPD2_213_B74::HEIGHT>
-display(GxEPD2_213_B74(EINK_CS_PIN, EINK_DC_PIN, EINK_RESET_PIN, EINK_BUSY_PIN));
+display(GxEPD2_213_B74(pins::kEinkCs, pins::kEinkDc, pins::kEinkReset, pins::kEinkBusy));
 
 // RFM95 Objects
 SPIClass rfmSPI(HSPI);
 SPISettings rfmSPISettings(RFM_SPI_CLOCK, MSBFIRST, SPI_MODE0);
-static Module radioModule(RF_CS_PIN, RF_DIO0_PIN, RF_RESET_PIN, RF_DIO1_PIN);
+static Module radioModule(pins::kRfCs, pins::kRfDio0, pins::kRfReset, pins::kRfDio1);
 RFM95 radio(&radioModule);
 
 // NAU7802 ADC object

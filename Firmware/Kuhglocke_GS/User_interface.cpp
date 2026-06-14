@@ -3,7 +3,7 @@
 
 void setUSBDataOnlyMode(bool state) {
   usbDataOnly = state;
-  digitalWrite(DISABLE_5V_PIN, state);
+  digitalWrite(pins::kDisable5v, state);
 }//setUSBDataOnlyMode()
 
 /*
