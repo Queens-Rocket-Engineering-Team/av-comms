@@ -34,6 +34,7 @@ struct NodeLiveness {
 void nodeInit(uint32_t nowMs);
 void nodeUpdate(uint32_t nowMs);
 void nodeServiceCanTx(uint32_t nowMs, AimNetwork& aim);
+void nodeOnRx(const aim::Msg& m, uint32_t nowMs);
 
 void nodeLivenessInit(uint32_t nowMs);
 void nodeLivenessOnRx(aim::Source source, uint32_t nowMs);

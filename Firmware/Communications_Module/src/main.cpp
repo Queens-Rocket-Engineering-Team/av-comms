@@ -34,15 +34,11 @@ static AimFileSystem g_fs(&g_flashDriver);
 static AimFlightRecorder g_recorder(g_fs, kLogCols, kLogOriginRefresh, kLogMaxSize, kLogHeaders);
 
 static void serviceCanRx(void) {
-  // Bounded RX drain. receive() disciplines the local clock on TimeSync; every
-  // valid frame proves its sender's liveness.
   const uint32_t nowMs = millis();
   for (uint8_t i = 0U; i < kMaxRxFramesPerLoop; i++) {
     aim::Msg m = {};
-    if (!g_aim.receive(m)) {
-      break;
-    }
-    nodeLivenessOnRx(m.source, nowMs);
+    if (!g_aim.receive(m)) break;
+    nodeOnRx(m, nowMs);
   }
 }
 

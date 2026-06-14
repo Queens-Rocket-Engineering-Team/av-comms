@@ -69,3 +69,8 @@ const NodeLiveness* nodeLivenessTable(uint8_t* countOut) {
   }
   return s_liveness;
 }
+
+void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
+  nodeLivenessOnRx(m.source, nowMs);
+  // TODO: forward frame over LoRa when the radio driver is wired in.
+}
