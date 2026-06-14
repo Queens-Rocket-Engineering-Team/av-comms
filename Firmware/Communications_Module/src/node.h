@@ -8,48 +8,35 @@
 #include <aim_network.h>
 #include <aim_safety.h>
 
+#include "pinouts.h"
+
 // Node-level identity and interface configuration lives in this file.
-#define NODE_ORIGIN AIM_ORG_COMMS
-#define NODE_NAME "COMMS_MODULE"
+namespace node {
+constexpr char     kName[]     = "COMMS_MODULE";
+constexpr uint32_t kCanBaud    = 500000U;
+constexpr uint32_t kSerialBaud = 38400U;
+}  // namespace node
 
-#define NODE_CAN_BAUD 500000U
-
+// CAN peripheral handle — CAN1 is a HAL macro (reinterpret_cast pointer), so it
+// cannot be constexpr; it stays a #define.
 #define NODE_CAN_BUS CAN1
 
-#define NODE_SERIAL_RX_PIN PB10
-#define NODE_SERIAL_TX_PIN PB11
-
-#define NODE_SERIAL_BAUD 38400U
-
-// Flash debug storage configuration (SPI flash on PB12-PB15).
-#define NODE_FLASH_CS_PIN PB12
-#define NODE_FLASH_SCK_PIN PB13
-#define NODE_FLASH_MISO_PIN PB14
-#define NODE_FLASH_MOSI_PIN PB15
-
-// Number of columns stored in each flash table row.
-#define NODE_FLASH_TABLE_COLS 1U
-// Interval, in rows, between origin/metadata refresh operations.
-#define NODE_FLASH_ORIGIN_REFRESH_INT 64U
-// Total size, in bytes, reserved for the flash table.
-#define NODE_FLASH_TABLE_SIZE 65536U
-// Flash table instance index used by this node.
-#define NODE_FLASH_TABLE_NUM 0U
-// Scratch/data buffer size, in bytes, allocated in STM32 MCU RAM for flash table operations.
-#define NODE_MCU_BUFFER_SIZE 256U
-
-enum NodeState : uint8_t {
-  INIT = 0U,
-  OPERATIONAL = 1U,
-  DEBUG_CONSOLE = 2U,
-  FLASH_DUMP = 3U,
-  FLASH_ERASE = 4U,
-  SAFE_MODE = 5U,
-  LOW_POWER = 6U,
-  FAULT = 7U
+// --- Node liveness tracker ---
+// v0.6.x dropped the library's built-in AimNodeHealth; Comms keeps a minimal
+// local table so the console can report which nodes are on the bus. Any valid
+// frame from a source proves its liveness (protocol invariant).
+struct NodeLiveness {
+  aim::Source source;
+  uint32_t lastHeardMs;  // local millis() — never syncedMillis(), which steps
+  bool everHeard;
 };
 
-// Add node-specific periodic behavior in nodeUpdate().
-void nodeUpdate(uint32_t schedulerNowMs);
+void nodeInit(uint32_t nowMs);
+void nodeUpdate(uint32_t nowMs);
+void nodeServiceCanTx(uint32_t nowMs, AimNetwork& aim);
+
+void nodeLivenessInit(uint32_t nowMs);
+void nodeLivenessOnRx(aim::Source source, uint32_t nowMs);
+const NodeLiveness* nodeLivenessTable(uint8_t* countOut);
 
 #endif  // NODE_H
