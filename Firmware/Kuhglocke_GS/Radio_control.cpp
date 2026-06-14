@@ -42,8 +42,7 @@ void rfmInit() {
   radio.setDio0Action(setFlag, RISING);
 
   double baseFreq = freqOpts[freqSelected];
-  double freqOffset = (freqCorrectionOpts[freqCorrectionSelected]/1000000.0); //Hz -> MHz
-  freqOffset = (curFreqOffset/1000000.0); //Hz -> MHz (OVERRIDE)
+  double freqOffset = (curFreqOffset/1000000.0); //Hz -> MHz
   if (radio.setFrequency(baseFreq+freqOffset) == RADIOLIB_ERR_INVALID_FREQUENCY) {
     Serial.println(F("Frequency is invalid!"));
     while (true);
@@ -131,12 +130,7 @@ void onRFMReceive() {
   // Process packet data
   rfmLastPacketValid = true;
 
-  rocketCallsign[0] = rfmPayload[0];
-  rocketCallsign[1] = rfmPayload[1];
-  rocketCallsign[2] = rfmPayload[2];
-  rocketCallsign[3] = rfmPayload[3];
-  rocketCallsign[4] = rfmPayload[4];
-  rocketCallsign[5] = rfmPayload[5];
+  memcpy(rocketCallsign, rfmPayload, 6);
   
   rocketGPSLat = (rfmPayload[9]<<24) + (rfmPayload[8]<<16) + (rfmPayload[7]<<8) + rfmPayload[6];
   rocketGPSLon = (rfmPayload[13]<<24) + (rfmPayload[12]<<16) + (rfmPayload[11]<<8) + rfmPayload[10];

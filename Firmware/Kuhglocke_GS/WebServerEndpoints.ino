@@ -165,20 +165,20 @@ void configWebServer() {
 
   // Route for frequency offset increase
   webServer.on("/FreqUp", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/style.css", "text/css");
     curFreqOffset += 1000;
+    request->send(200, "text/plain", "OK");
   });
 
-  // Route for frequency offset increase
+  // Route for frequency offset decrease
   webServer.on("/FreqDown", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/style.css", "text/css");
     curFreqOffset -= 1000;
+    request->send(200, "text/plain", "OK");
   });
 
   // Route for reload radio
   webServer.on("/RadioReload", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/style.css", "text/css");
     rfmInit();
+    request->send(200, "text/plain", "OK");
   });
 
   // Route for downloading logs
