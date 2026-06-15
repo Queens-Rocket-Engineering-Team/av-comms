@@ -39,4 +39,9 @@ const NodeLiveness* nodeLivenessTable(uint8_t* countOut);
 aim::NodeState nodeCurrentState();
 uint16_t nodeErrorBits();
 
+#ifndef FLIGHT_BUILD
+#include <aim_console.h>
+const AimConsoleHook* nodeConsoleHooks(uint8_t& count);
+#endif
+
 #endif  // NODE_H

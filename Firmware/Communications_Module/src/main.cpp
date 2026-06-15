@@ -43,18 +43,6 @@ static void serviceCanRx(void) {
 }
 
 #ifndef FLIGHT_BUILD
-static const char* sourceName(aim::Source src) {
-  switch (src) {
-    case aim::Source::Comms:     return "COMMS";
-    case aim::Source::Ucm:       return "UCM";
-    case aim::Source::Lcm:       return "LCM";
-    case aim::Source::Altimeter: return "ALT";
-    case aim::Source::Gps:       return "GPS";
-    case aim::Source::Power:     return "PWR";
-    default:                     return "?";
-  }
-}
-
 static void hookStatus(Stream& out) {
   out.print("name=");
   out.print(node::kName);
@@ -74,35 +62,6 @@ static void hookStatus(Stream& out) {
   out.print(" ");
   out.println(__TIME__);
 }
-
-static void hookLiveness(Stream& out) {
-  uint8_t count = 0U;
-  const NodeLiveness* table = nodeLivenessTable(&count);
-  const uint32_t nowMs = millis();
-
-  out.println("Node liveness:");
-  for (uint8_t i = 0U; i < count; i++) {
-    const uint32_t ageMs = nowMs - table[i].lastHeardMs;
-    const bool alive = table[i].everHeard && (ageMs < kLivenessTimeoutMs);
-    out.print("  ");
-    out.print(sourceName(table[i].source));
-    out.print(" (0x");
-    out.print(static_cast<unsigned>(table[i].source), HEX);
-    out.print("): ");
-    if (!table[i].everHeard) {
-      out.println("never heard");
-    } else {
-      out.print(alive ? "ALIVE" : "DEAD");
-      out.print(" ageMs=");
-      out.println(static_cast<unsigned long>(ageMs));
-    }
-  }
-}
-
-static const AimConsoleHook kConsoleHooks[] = {
-  {'s', "status", hookStatus},
-  {'n', "node liveness", hookLiveness},
-};
 #endif  // FLIGHT_BUILD
 
 void setup(void) {
@@ -133,8 +92,16 @@ void setup(void) {
   }
 
 #ifndef FLIGHT_BUILD
-  aimConsoleInit(g_serial, g_fs, g_recorder, node::kName, kConsoleHooks,
-                 static_cast<uint8_t>(sizeof(kConsoleHooks) / sizeof(kConsoleHooks[0])));
+  uint8_t nodeHookCount = 0U;
+  const AimConsoleHook* nodeHooks = nodeConsoleHooks(nodeHookCount);
+
+  AimConsoleHook combinedHooks[8];
+  uint8_t totalHooks = 0;
+  combinedHooks[totalHooks++] = {'s', "status", hookStatus};
+  for (uint8_t i = 0; i < nodeHookCount && totalHooks < 8; i++) {
+    combinedHooks[totalHooks++] = nodeHooks[i];
+  }
+  aimConsoleInit(g_serial, g_fs, g_recorder, node::kName, combinedHooks, totalHooks);
   g_serial.println("Console ready. d=enter debug");
 #endif
 }

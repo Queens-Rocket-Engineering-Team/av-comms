@@ -88,3 +88,51 @@ aim::NodeState nodeCurrentState() {
 uint16_t nodeErrorBits() {
   return 0U;
 }
+
+#ifndef FLIGHT_BUILD
+static const char* sourceName(aim::Source src) {
+  switch (src) {
+    case aim::Source::Comms:     return "COMMS";
+    case aim::Source::Ucm:       return "UCM";
+    case aim::Source::Lcm:       return "LCM";
+    case aim::Source::Altimeter: return "ALT";
+    case aim::Source::Gps:       return "GPS";
+    case aim::Source::Power:     return "PWR";
+    default:                     return "?";
+  }
+}
+
+static void hookLiveness(Stream& out) {
+  uint8_t count = 0U;
+  const NodeLiveness* table = nodeLivenessTable(&count);
+  const uint32_t nowMs = millis();
+  static constexpr uint32_t kLivenessTimeoutMs = 10000U;
+
+  out.println("Node liveness:");
+  for (uint8_t i = 0U; i < count; i++) {
+    const uint32_t ageMs = nowMs - table[i].lastHeardMs;
+    const bool alive = table[i].everHeard && (ageMs < kLivenessTimeoutMs);
+    out.print("  ");
+    out.print(sourceName(table[i].source));
+    out.print(" (0x");
+    out.print(static_cast<unsigned>(table[i].source), HEX);
+    out.print("): ");
+    if (!table[i].everHeard) {
+      out.println("never heard");
+    } else {
+      out.print(alive ? "ALIVE" : "DEAD");
+      out.print(" ageMs=");
+      out.println(static_cast<unsigned long>(ageMs));
+    }
+  }
+}
+
+static const AimConsoleHook s_consoleHooks[] = {
+  {'n', "node liveness", hookLiveness},
+};
+
+const AimConsoleHook* nodeConsoleHooks(uint8_t& count) {
+  count = sizeof(s_consoleHooks) / sizeof(s_consoleHooks[0]);
+  return s_consoleHooks;
+}
+#endif
