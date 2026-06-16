@@ -99,7 +99,7 @@ display(GxEPD2_213_B74(pins::kEinkCs, pins::kEinkDc, pins::kEinkReset, pins::kEi
 // RFM95 Objects
 SPIClass rfmSPI(HSPI);
 SPISettings rfmSPISettings(RFM_SPI_CLOCK, MSBFIRST, SPI_MODE0);
-static Module radioModule(pins::kRfCs, pins::kRfDio0, pins::kRfReset, pins::kRfDio1);
+static Module radioModule(pins::kRfCs, pins::kRfDio0, pins::kRfReset, pins::kRfDio1, rfmSPI, rfmSPISettings);
 RFM95 radio(&radioModule);
 
 // NAU7802 ADC object

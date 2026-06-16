@@ -1,8 +1,6 @@
-/*
- * File containing web server configuration.
- * 
- * To be appended to main file upon compilation.
- */
+#include <Arduino.h>
+#include "libraries.h"
+
 
 
 

@@ -43,7 +43,15 @@
  */
 
 
+#include <Arduino.h>
 #include "libraries.h"
+
+// Forward declarations
+void loopAltCoreHandler(void * pvParameters);
+void loopAltCore();
+void configWebServer();
+
+
 
 
 

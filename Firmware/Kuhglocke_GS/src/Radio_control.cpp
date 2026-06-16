@@ -130,7 +130,7 @@ void onRFMReceive() {
   // Process packet data
   rfmLastPacketValid = true;
 
-  memcpy(rocketCallsign, rfmPayload, 6);
+  memcpy((char*)rocketCallsign, rfmPayload, 6);
   
   rocketGPSLat = (rfmPayload[9]<<24) + (rfmPayload[8]<<16) + (rfmPayload[7]<<8) + rfmPayload[6];
   rocketGPSLon = (rfmPayload[13]<<24) + (rfmPayload[12]<<16) + (rfmPayload[11]<<8) + rfmPayload[10];
