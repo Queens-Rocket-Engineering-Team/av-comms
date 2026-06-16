@@ -1,9 +1,9 @@
-#include "Screen_control.h"
+#include "screen_control.h"
 #include "pinouts.h"
-#include "Global.h"
-#include "Radio_control.h"
+#include "global.h"
+#include "radio_control.h"
 #include "power_sensors.h"
-#include "GPS.h"
+#include "gps.h"
 #include <SPI.h>
 #include <GxEPD2_BW.h>
 #include "GxEPD2_display_selection_new_style.h"
@@ -16,7 +16,7 @@ s_display(GxEPD2_213_B74(pins::kEinkCs, pins::kEinkDc, pins::kEinkReset, pins::k
 void screenInit() {
   s_epdSPI.begin(pins::kEinkSck, pins::kEinkMiso, pins::kEinkMosi, pins::kEinkCs);
   pinMode(s_epdSPI.pinSS(), OUTPUT);
-  s_display.init(EPD_BAUD, true, 2, false, s_epdSPI, SPISettings(EPD_SPI_CLOCK, MSBFIRST, SPI_MODE0));
+  s_display.init(kEpdBaud, true, 2, false, s_epdSPI, SPISettings(kEpdSpiClock, MSBFIRST, SPI_MODE0));
   s_display.setRotation(1);
 }
 
@@ -26,7 +26,7 @@ void drawLoadingScreen() {
   do {
     s_display.fillScreen(GxEPD_WHITE);
     s_display.setTextSize(1);
-    s_display.println(String("QRET Kuhglocke    FW=") + FIRMWARE_VERSION);
+    s_display.println(String("QRET Kuhglocke    FW=") + kFirmwareVersion);
     s_display.setCursor(30,20);
     s_display.setTextSize(7);
     s_display.println("QRET");

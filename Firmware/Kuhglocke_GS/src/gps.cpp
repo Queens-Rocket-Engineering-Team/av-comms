@@ -1,8 +1,8 @@
-#include "GPS.h"
+#include "gps.h"
 #include "pinouts.h"
-#include "Global.h"
-#include "Radio_control.h"
-#include "User_interface.h"
+#include "global.h"
+#include "radio_control.h"
+#include "user_interface.h"
 #include <math.h>
 #include <TinyGPSPlus.h>
 #include <HardwareSerial.h>
@@ -35,13 +35,13 @@ int32_t getDistanceToRocket() {
              cos(lat1Rad) * cos(lat2Rad) *
              sin(dLon / 2) * sin(dLon / 2);
   double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-  double distance = EARTH_RADIUS_FEET * c;
+  double distance = kEarthRadiusFeet * c;
   
   return distance / 3.281;
 }
 
 void gpsInit() {
-  s_gpsSerial.begin(GPS_BAUD, SERIAL_8N1, pins::kGpsRx, pins::kGpsTx); 
+  s_gpsSerial.begin(kGpsBaud, SERIAL_8N1, pins::kGpsRx, pins::kGpsTx); 
 }
 
 void handleGPS() {
@@ -49,7 +49,7 @@ void handleGPS() {
     s_gps.encode(s_gpsSerial.read());
   }
 
-  if (millis() - s_lastLocalGPSLog > LOCAL_GPS_LOG_RATE) {
+  if (millis() - s_lastLocalGPSLog > kLocalGpsLogRate) {
     s_lastLocalGPSLog = millis();
     String resp = String("LocalGPS: ");
     resp += String(s_gps.satellites.age());
@@ -68,7 +68,7 @@ void calculateRocketVelocity() {
   static double previousAltitudeM = 0;
   static uint32_t lastTime = 0;
 
-  if (isRfmLastPacketValid() && millis() - getRfmLastRFReceived() < RFM_CONNECTED_TIMEOUT) {
+  if (isRfmLastPacketValid() && millis() - getRfmLastRFReceived() < kRfmConnectedTimeout) {
     uint32_t currentTime = millis();
     double currentAltitudeM = getRocketAltitudeMeters();
 
@@ -87,18 +87,4 @@ uint32_t getGPSAge() {
   return s_gps.location.age();
 }
 
-uint32_t getGPSSats() {
-  return s_gps.satellites.value();
-}
 
-double getGPSLat() {
-  return s_gps.location.lat();
-}
-
-double getGPSLng() {
-  return s_gps.location.lng();
-}
-
-double getGPSAlt() {
-  return s_gps.altitude.meters();
-}

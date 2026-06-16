@@ -13,5 +13,3 @@ bool writeToSDLog(const String& txt);
 void triggerRFFlash();
 void handleLEDs();
 
-uint16_t getLogFileNumber();
-bool isUsbDataOnly();

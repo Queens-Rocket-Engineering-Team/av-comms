@@ -10,7 +10,3 @@ void calculateRocketVelocity();
 
 // Accessors for local GPS state
 uint32_t getGPSAge();
-uint32_t getGPSSats();
-double getGPSLat();
-double getGPSLng();
-double getGPSAlt();

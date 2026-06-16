@@ -1,14 +1,14 @@
 #include <Arduino.h>
-#include "Global.h"
+#include "global.h"
 #include "pinouts.h"
 #include "power_sensors.h"
-#include "Radio_control.h"
-#include "Screen_control.h"
-#include "User_interface.h"
-#include "GPS.h"
+#include "radio_control.h"
+#include "screen_control.h"
+#include "user_interface.h"
+#include "gps.h"
 #include "SD_MMC.h"
-#include "SPIFFS.h"
 #include "WiFi.h"
+#include "qlcp_uplink.h"
 #include <Wire.h>
 #include <MedianFilterLib.h>
 
@@ -17,8 +17,7 @@
 static void loopAltCoreHandler(void* pvParameters);
 static void loopAltCore();
 
-// Declared in web_endpoints.cpp
-void startWebServer();
+
 
 // Static Task Handles and stats
 static TaskHandle_t s_core0Task = nullptr;
@@ -48,7 +47,7 @@ void setup() {
   setRGB(0, 128, 32, 0); // Power LED to loading
 
   // Start USB Serial
-  Serial.begin(USB_BAUD);
+  Serial.begin(kUsbBaud);
 
   // Initialize E-Paper Display
   screenInit();
@@ -56,7 +55,7 @@ void setup() {
 
   // Configure I2C Bus
   Wire.begin(pins::kI2cSda, pins::kI2cScl);
-  Wire.setClock(I2C_SPEED);
+  Wire.setClock(kI2cSpeed);
 
   // Initialize MicroSD card (1-bit mode)
   SD_MMC.setPins(pins::kSdmmcClk, pins::kSdmmcCmd, pins::kSdmmcD0);
@@ -77,42 +76,31 @@ void setup() {
   // Initialize RFM95 Radio
   rfmInit();
 
-  // Initialize SPIFFS
-  if (!SPIFFS.begin(true)) {
-    Serial.println("An Error has occurred while mounting SPIFFS");
-    return;
-  }
-
-  // Launch WiFi AP
-  WiFi.begin(AP_SSID, AP_PASSWORD);
-  WiFi.setTxPower(WIFI_TX_POWER);
+  // Launch WiFi STA
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(kSsid, kPassword);
+  Serial.printf("Connecting to SSID: %s\n", kSsid);
   uint32_t wifiConnectStart = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - wifiConnectStart < 1000) {  // 1 second timeout
-    delay(500);
+    delay(100);
     Serial.print(".");
   }
  
   if (WiFi.status() == WL_CONNECTED) {
-    IPAddress IP = WiFi.localIP();
-    Serial.println("\nWiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(IP);
+    Serial.print("\nWiFi Connected! IP: ");
+    Serial.println(WiFi.localIP());
   } else {
-    Serial.println("\nWiFi connection failed - falling back to AP mode");
-    WiFi.softAP(AP_SSID, AP_PASSWORD, WIFI_CHANNEL);
-    IPAddress IP = WiFi.softAPIP();
-    Serial.print("Fallback AP IP address: ");
-    Serial.println(IP);
+    Serial.println("\nWiFi connection pending, will connect in background");
   }
 
-  // Configure Async web server
-  startWebServer();
+  // Initialize QLCP client
+  qlcpUplinkInit();
   
   // Launch background task for Core 0
   xTaskCreatePinnedToCore(
       loopAltCoreHandler,   // Task function
       "Core0Loop",          // Name of the task
-      ALT_CORE_STACKS_SIZE, // Stack size
+      kAltCoreStacksSize,   // Stack size
       NULL,                 // Task input parameter
       1,                    // Priority of the task
       &s_core0Task,         // Task handle
@@ -131,16 +119,28 @@ void loop() {
   handleReadPowerSensors();
   handleLEDs();
   
-  if (analogRead(pins::kMenuBtns) > 40) {
+  if (analogRead(pins::kMenuBtns) > kButtonThreshold) {
     setLEDBrightness(255);
   } else {
-    setLEDBrightness(DEFAULT_LED_BRIGHTNESS);
+    setLEDBrightness(kDefaultLedBrightness);
   }
 
   // Check for incoming RFM95 packets
   if (getRfmReceivedFlag()) {
     clearRfmReceivedFlag();
     onRFMReceive();
+  }
+
+  // Service the QLCP uplink
+  qlcpUplinkService();
+
+  // Reconnect WiFi if disconnected
+  static uint32_t s_lastWifiCheck = 0;
+  if (millis() - s_lastWifiCheck > 5000) {
+    s_lastWifiCheck = millis();
+    if (WiFi.status() != WL_CONNECTED) {
+      WiFi.begin(kSsid, kPassword);
+    }
   }
 
   uint16_t core1LoopTime = (millis() - loopStart);
@@ -160,7 +160,7 @@ static void loopAltCoreHandler(void* pvParameters) {
 static void loopAltCore() {
   uint32_t loopStart = millis();
   
-  if (millis() - s_lastEPDUpdate > EPD_UPDATE_INT) {
+  if (millis() - s_lastEPDUpdate > kEpdUpdateInt) {
     s_lastEPDUpdate = millis();
     updateEPD();
   }

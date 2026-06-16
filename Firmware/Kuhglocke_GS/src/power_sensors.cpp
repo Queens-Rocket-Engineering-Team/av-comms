@@ -1,6 +1,6 @@
 #include "power_sensors.h"
 #include "pinouts.h"
-#include "User_interface.h"
+#include "user_interface.h"
 #include <Wire.h>
 #include <NAU7802_2CH.h>
 #include <MedianFilterLib.h>

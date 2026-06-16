@@ -1,15 +1,15 @@
-#include "User_interface.h"
+#include "user_interface.h"
 #include "pinouts.h"
-#include "Global.h"
+#include "global.h"
 #include "power_sensors.h"
-#include "Radio_control.h"
+#include "radio_control.h"
 #include <Adafruit_NeoPixel.h>
 #include <FS.h>
 #include <SD_MMC.h>
 
 
 // Static state variables
-static Adafruit_NeoPixel s_rgbLEDs(NUM_RGB_LEDS, pins::kRgbData, NEO_GRB + NEO_KHZ800);
+static Adafruit_NeoPixel s_rgbLEDs(kNumRgbLeds, pins::kRgbData, NEO_GRB + NEO_KHZ800);
 static bool s_usbDataOnly = false;
 static File s_logFile;
 static uint16_t s_logFileNumber = 0;
@@ -19,7 +19,7 @@ static uint32_t s_indRFFlashStart = 0;
 
 void initLEDs() {
   s_rgbLEDs.begin();
-  s_rgbLEDs.setBrightness(DEFAULT_LED_BRIGHTNESS);
+  s_rgbLEDs.setBrightness(kDefaultLedBrightness);
   s_rgbLEDs.show();
 }
 
@@ -45,7 +45,7 @@ void setRGB(byte index, byte r, byte g, byte b, bool push) {
 }
 
 void setRGB(byte r, byte g, byte b) {
-  for (byte i = 0; i < NUM_RGB_LEDS; i++) {
+  for (byte i = 0; i < kNumRgbLeds; i++) {
     setRGB(i, r, g, b);
   }
 }
@@ -58,7 +58,7 @@ bool makeNextSDLog() {
   SD_MMC.mkdir("/logs");
 
   uint16_t id = 0;
-  while (true) {
+  while (id < 10000) {
     if (SD_MMC.exists("/logs/Kuhglocke_Log" + String(id) + ".txt")) {
       id++;
     } else {
@@ -101,15 +101,15 @@ void handleLEDs() {
   uint8_t chrgStatus = getChargingStatus();
   uint16_t battVolt = getBatteryVoltage();
   
-  if (battVolt < 3500) {
+  if (battVolt < kBattVoltLow) {
     if (chrgStatus == 1) {
       setRGB(1, 0, 255, 0, false);
     } else {
       setRGB(1, 255, 0, 0, false);
     }
-  } else if (battVolt < 3700) {
+  } else if (battVolt < kBattVoltMedium) {
     setRGB(1, 255, 80, 0, false);
-  } else if (battVolt < 3900) {
+  } else if (battVolt < kBattVoltHigh) {
     setRGB(1, 255, 220, 0, false);
   } else {
     setRGB(1, 0, 255, 0, false);
@@ -119,14 +119,14 @@ void handleLEDs() {
     if (s_indBattFlashState) {
       setRGB(1, 0, 0, 0, true);
     }
-    if (millis() - s_indBattLastToggle > IND_BATTERY_FLASH_GAP) {
+    if (millis() - s_indBattLastToggle > kIndBatteryFlashGap) {
       s_indBattLastToggle = millis();
       s_indBattFlashState = !s_indBattFlashState;
     }
   }
 
   if (isRFMConnected()) {
-    if (millis() - s_indRFFlashStart < IND_RF_FLASH_TIME) {
+    if (millis() - s_indRFFlashStart < kIndRfFlashTime) {
       setRGB(2, 255, 255, 255); // Ping flash
     } else {
       setRGB(2, 0, 255, 0);     // Default green
@@ -136,7 +136,7 @@ void handleLEDs() {
   }
 
   if (isRFMConnected()) {
-    if (getRocketStatus() == 0b111) {
+    if (getRocketStatus() == kRocketStatusAllNominal) {
       setRGB(3, 255, 255, 255);
     } else {
       setRGB(3, 0, 0, 0);
@@ -156,10 +156,4 @@ void handleLEDs() {
   }
 }
 
-uint16_t getLogFileNumber() {
-  return s_logFileNumber;
-}
 
-bool isUsbDataOnly() {
-  return s_usbDataOnly;
-}

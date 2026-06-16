@@ -10,16 +10,17 @@ void clearRfmReceivedFlag();
 
 // Radio option accessors
 double getRadioFreq();
+
+// NOTE: Kept for future manual tuning / local menu support
 double getRadioBandwidth();
 int32_t getRadioSF();
 int32_t getRadioCR();
-
 // Getter functions for incoming RF status
 uint32_t getRfmLastRFReceived();
 int16_t getRfmLastRSSI();
 float getRfmLastSNR();
-int32_t getRfmLastFreqErr();
-const uint8_t* getRfmLastPacket();
+
+void getRfmLastPacket(uint8_t* dest);
 bool isRfmLastPacketValid();
 
 // Getter/Setter functions for decoded rocket packet data
@@ -38,6 +39,7 @@ double getRocketAltitudeMeters();
 
 void setRocketVelocity(double vel);
 
+// NOTE: Kept for future manual tuning / local menu support
 int32_t getCurFreqOffset();
 void changeFreqOffset(int32_t amount);
 void setRadioConfig(const String& name, uint16_t value);

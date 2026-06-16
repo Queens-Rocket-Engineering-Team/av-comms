@@ -1,33 +1,32 @@
-#include "Radio_control.h"
+#include "radio_control.h"
 #include "pinouts.h"
-#include "Global.h"
-#include "User_interface.h"
+#include "global.h"
+#include "user_interface.h"
 #include <SPI.h>
 #include <RadioLib.h>
 #include <aim_catalog.h>
 
 // Static state variables
 static double s_freqOpts[] = {902.0, 905.4, 928.0};
-
-static double s_bandwidthOpts[] = {7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500};
-static uint8_t s_numBandwidthOpts = 10;
-
-static int32_t s_spreadOpts[] = {7, 8, 9, 10, 11, 12};
-static uint8_t s_numSpreadOpts = 6;
-
-static int32_t s_codingOpts[] = {5, 6, 7, 8};
-static uint8_t s_numCodingOpts = 4;
-
 static uint8_t s_freqSelected = 1;
+
+static constexpr uint8_t s_numBandwidthOpts = 10;
+static double s_bandwidthOpts[s_numBandwidthOpts] = {7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500};
 static uint8_t s_bandwidthSelected = 6;
+
+static constexpr uint8_t s_numSpreadOpts = 6;
+static int32_t s_spreadOpts[s_numSpreadOpts] = {7, 8, 9, 10, 11, 12};
 static uint8_t s_spreadSelected = 3;
+
+static constexpr uint8_t s_numCodingOpts = 4;
+static int32_t s_codingOpts[s_numCodingOpts] = {5, 6, 7, 8};
 static uint8_t s_codingSelected = 1;
 
 static volatile uint32_t s_rfmLastRFReceived = 0;
 static volatile int16_t s_rfmLastRSSI = 0;
 static volatile float s_rfmLastSNR = 0;
 static volatile int32_t s_rfmLastFreqErr = 0;
-static uint8_t s_rfmLastPacket[RFM_PACKET_SIZE] = {0};
+static uint8_t s_rfmLastPacket[kRfmPacketSize] = {0};
 static volatile bool s_rfmLastPacketValid = false;
 
 static volatile int32_t s_rocketGPSLat = 0;
@@ -45,22 +44,27 @@ static uint32_t s_lastHeardGps = 0;
 static uint32_t s_lastHeardAltimeter = 0;
 static uint32_t s_lastHeardUcmLcm = 0;
 
+// Mutex for cross-core synchronization
+static portMUX_TYPE s_rocketMux = portMUX_INITIALIZER_UNLOCKED;
+
 // SPI + Radio Objects
 static SPIClass s_rfmSPI(HSPI);
-static SPISettings s_rfmSPISettings(RFM_SPI_CLOCK, MSBFIRST, SPI_MODE0);
+static SPISettings s_rfmSPISettings(kRfmSpiClock, MSBFIRST, SPI_MODE0);
 static Module s_radioModule(pins::kRfCs, pins::kRfDio0, pins::kRfReset, pins::kRfDio1, s_rfmSPI, s_rfmSPISettings);
 static RFM95 s_radio(&s_radioModule);
 
-static String byteArrayToHexString(const byte* byteArray, int length) {
-  String hexString;
-  hexString.reserve(length * 2);
+static void byteArrayToHexStr(const byte* byteArray, int length, char* outBuf, size_t maxLen) {
+  if (static_cast<size_t>(length * 2 + 1) > maxLen) {
+    if (maxLen > 0) outBuf[0] = '\0';
+    return;
+  }
   static const char hex[] = "0123456789ABCDEF";
   for (int i = 0; i < length; i++) {
     uint8_t b = byteArray[i];
-    hexString += hex[(b >> 4) & 0x0F];
-    hexString += hex[b & 0x0F];
+    outBuf[i * 2] = hex[(b >> 4) & 0x0F];
+    outBuf[i * 2 + 1] = hex[b & 0x0F];
   }
-  return hexString;
+  outBuf[length * 2] = '\0';
 }
 
 #if defined(ESP8266) || defined(ESP32)
@@ -71,7 +75,10 @@ void setFlag(void) {
 }
 
 bool isRFMConnected() {
-  return (millis() - s_rfmLastRFReceived < RFM_CONNECTED_TIMEOUT);
+  portENTER_CRITICAL(&s_rocketMux);
+  uint32_t lastRF = s_rfmLastRFReceived;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return (millis() - lastRF < kRfmConnectedTimeout);
 }
 
 void rfmInit() {
@@ -115,9 +122,9 @@ void rfmInit() {
 }
 
 void onRFMReceive() {
-  byte rfmPayload[RFM_PACKET_SIZE];
+  byte rfmPayload[kRfmPacketSize];
   
-  int state = s_radio.readData(rfmPayload, RFM_PACKET_SIZE);
+  int state = s_radio.readData(rfmPayload, kRfmPacketSize);
 
   // Restart receiver immediately
   s_radio.startReceive();
@@ -129,8 +136,6 @@ void onRFMReceive() {
     }
     return;
   }
-
-  s_rfmLastPacketValid = true;
 
   // Extract AIM fields from the 10-byte framed record
   aim::Class cls = static_cast<aim::Class>(rfmPayload[0] >> 4);
@@ -155,6 +160,10 @@ void onRFMReceive() {
   if (nowMs - s_lastHeardGps < 5000) status |= 1;
   if (nowMs - s_lastHeardAltimeter < 5000) status |= 2;
   if (nowMs - s_lastHeardUcmLcm < 5000) status |= 4;
+
+  // Protect writes to shared variables
+  portENTER_CRITICAL(&s_rocketMux);
+  s_rfmLastPacketValid = true;
   s_rocketStatus = status;
 
   // Map fields from subject catalog
@@ -171,29 +180,35 @@ void onRFMReceive() {
   }
 
   s_rfmLastRFReceived = nowMs;
-  triggerRFFlash();
   s_rfmLastRSSI = s_radio.getRSSI();
   s_rfmLastSNR = s_radio.getSNR();
   s_rfmLastFreqErr = s_radio.getFrequencyError();
-  memcpy(s_rfmLastPacket, rfmPayload, RFM_PACKET_SIZE);
+  memcpy(s_rfmLastPacket, rfmPayload, kRfmPacketSize);
+  portEXIT_CRITICAL(&s_rocketMux);
+
+  triggerRFFlash();
+
+  // Local stack buffer for formatting hex
+  char hexBuf[kRfmPacketSize * 2 + 1];
+  byteArrayToHexStr(rfmPayload, kRfmPacketSize, hexBuf, sizeof(hexBuf));
 
   char logBuf[100];
   snprintf(logBuf, sizeof(logBuf), "RocketPacket:%u,%d,%.1f,%d,%s",
-           s_rfmLastRFReceived,
+           nowMs,
            s_rfmLastRSSI,
            s_rfmLastSNR,
            s_rfmLastFreqErr,
-           byteArrayToHexString(rfmPayload, RFM_PACKET_SIZE).c_str());
+           hexBuf);
   writeToSDLog(logBuf);
 
   char logBuf2[100];
   snprintf(logBuf2, sizeof(logBuf2), "RocketData:%u,%.6f,%.6f,%.2f,%.2f,%u",
-           s_rocketGPSSats,
+           getRocketGPSSats(),
            getRocketLatDeg(),
            getRocketLonDeg(),
            getRocketAltitudeMeters(),
-           s_rocketVelocity,
-           s_rocketStatus);
+           getRocketVelocity(),
+           getRocketStatus());
   writeToSDLog(logBuf2);
 }
 
@@ -208,84 +223,122 @@ void clearRfmReceivedFlag() {
 double getRadioFreq() {
   return s_freqOpts[s_freqSelected];
 }
-
+// NOTE: Kept for future manual tuning / local menu support
 double getRadioBandwidth() {
   return s_bandwidthOpts[s_bandwidthSelected];
 }
 
+// NOTE: Kept for future manual tuning / local menu support
 int32_t getRadioSF() {
   return s_spreadOpts[s_spreadSelected];
 }
 
+// NOTE: Kept for future manual tuning / local menu support
 int32_t getRadioCR() {
   return s_codingOpts[s_codingSelected];
 }
-
 uint32_t getRfmLastRFReceived() {
-  return s_rfmLastRFReceived;
+  portENTER_CRITICAL(&s_rocketMux);
+  uint32_t val = s_rfmLastRFReceived;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 int16_t getRfmLastRSSI() {
-  return s_rfmLastRSSI;
+  portENTER_CRITICAL(&s_rocketMux);
+  int16_t val = s_rfmLastRSSI;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 float getRfmLastSNR() {
-  return s_rfmLastSNR;
+  portENTER_CRITICAL(&s_rocketMux);
+  float val = s_rfmLastSNR;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
-int32_t getRfmLastFreqErr() {
-  return s_rfmLastFreqErr;
-}
 
-const uint8_t* getRfmLastPacket() {
-  return s_rfmLastPacket;
+
+void getRfmLastPacket(uint8_t* dest) {
+  portENTER_CRITICAL(&s_rocketMux);
+  memcpy(dest, s_rfmLastPacket, kRfmPacketSize);
+  portEXIT_CRITICAL(&s_rocketMux);
 }
 
 bool isRfmLastPacketValid() {
-  return s_rfmLastPacketValid;
+  portENTER_CRITICAL(&s_rocketMux);
+  bool val = s_rfmLastPacketValid;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 int32_t getRocketGPSLat() {
-  return s_rocketGPSLat;
+  portENTER_CRITICAL(&s_rocketMux);
+  int32_t val = s_rocketGPSLat;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 int32_t getRocketGPSLon() {
-  return s_rocketGPSLon;
+  portENTER_CRITICAL(&s_rocketMux);
+  int32_t val = s_rocketGPSLon;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 uint8_t getRocketGPSSats() {
-  return s_rocketGPSSats;
+  portENTER_CRITICAL(&s_rocketMux);
+  uint8_t val = s_rocketGPSSats;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 uint8_t getRocketStatus() {
-  return s_rocketStatus;
+  portENTER_CRITICAL(&s_rocketMux);
+  uint8_t val = s_rocketStatus;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 double getRocketVelocity() {
-  return s_rocketVelocity;
+  portENTER_CRITICAL(&s_rocketMux);
+  double val = s_rocketVelocity;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 // Catalog wire scaling (aim_catalog.h): GPS degrees x10^7, altitude meters x100.
 double getRocketLatDeg() {
-  return s_rocketGPSLat / 1.0e7;
+  portENTER_CRITICAL(&s_rocketMux);
+  int32_t val = s_rocketGPSLat;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val / 1.0e7;
 }
 
 double getRocketLonDeg() {
-  return s_rocketGPSLon / 1.0e7;
+  portENTER_CRITICAL(&s_rocketMux);
+  int32_t val = s_rocketGPSLon;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val / 1.0e7;
 }
 
 double getRocketAltitudeMeters() {
-  return s_rocketAltitude / 100.0;
+  portENTER_CRITICAL(&s_rocketMux);
+  int32_t val = s_rocketAltitude;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val / 100.0;
 }
 
 void setRocketVelocity(double vel) {
+  portENTER_CRITICAL(&s_rocketMux);
   s_rocketVelocity = vel;
+  portEXIT_CRITICAL(&s_rocketMux);
 }
-
+// NOTE: Kept for future manual tuning / local menu support
 int32_t getCurFreqOffset() {
   return s_curFreqOffset;
 }
-
 void changeFreqOffset(int32_t amount) {
   s_curFreqOffset += amount;
 }
