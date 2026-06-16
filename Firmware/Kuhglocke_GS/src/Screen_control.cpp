@@ -53,13 +53,13 @@ void updateEPD() {
     
     s_display.setCursor(x, y);
     s_display.print("LAT:");
-    s_display.println(getRocketGPSLat() / 1000000.0, 6);
-    
+    s_display.println(getRocketLatDeg(), 6);
+
     s_display.print("LON:");
-    s_display.println(getRocketGPSLon() / 1000000.0, 6);
+    s_display.println(getRocketLonDeg(), 6);
 
     s_display.print("ALT:");
-    s_display.print(getRocketAltitude() * 3.28084f, 0);
+    s_display.print(getRocketAltitudeMeters() * 3.28084, 0);
     s_display.println("ft");
 
     s_display.print("AGE:");

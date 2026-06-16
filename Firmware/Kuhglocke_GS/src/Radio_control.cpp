@@ -187,11 +187,11 @@ void onRFMReceive() {
   writeToSDLog(logBuf);
 
   char logBuf2[100];
-  snprintf(logBuf2, sizeof(logBuf2), "RocketData:%u,%.6f,%.6f,%d,%.2f,%u",
+  snprintf(logBuf2, sizeof(logBuf2), "RocketData:%u,%.6f,%.6f,%.2f,%.2f,%u",
            s_rocketGPSSats,
-           s_rocketGPSLat / 10000000.0,
-           s_rocketGPSLon / 10000000.0,
-           s_rocketAltitude,
+           getRocketLatDeg(),
+           getRocketLonDeg(),
+           getRocketAltitudeMeters(),
            s_rocketVelocity,
            s_rocketStatus);
   writeToSDLog(logBuf2);
@@ -257,16 +257,25 @@ uint8_t getRocketGPSSats() {
   return s_rocketGPSSats;
 }
 
-int32_t getRocketAltitude() {
-  return s_rocketAltitude;
-}
-
 uint8_t getRocketStatus() {
   return s_rocketStatus;
 }
 
 double getRocketVelocity() {
   return s_rocketVelocity;
+}
+
+// Catalog wire scaling (aim_catalog.h): GPS degrees x10^7, altitude meters x100.
+double getRocketLatDeg() {
+  return s_rocketGPSLat / 1.0e7;
+}
+
+double getRocketLonDeg() {
+  return s_rocketGPSLon / 1.0e7;
+}
+
+double getRocketAltitudeMeters() {
+  return s_rocketAltitude / 100.0;
 }
 
 void setRocketVelocity(double vel) {

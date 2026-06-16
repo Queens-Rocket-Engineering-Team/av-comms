@@ -19,16 +19,14 @@ int32_t getDistanceToRocket() {
   if (s_gps.location.lat() == 0 || s_gps.location.lng() == 0 || s_gps.location.age() > 5000) {
     return -1;
   }
-  int32_t rLat = getRocketGPSLat();
-  int32_t rLon = getRocketGPSLon();
-  if (rLat == 0 || rLon == 0) {
+  if (getRocketGPSLat() == 0 || getRocketGPSLon() == 0) {
     return -1;
   }
 
   double lat1Rad = degToRad(s_gps.location.lat());
   double lon1Rad = degToRad(s_gps.location.lng());
-  double lat2Rad = degToRad(rLat / 1000000.0);
-  double lon2Rad = degToRad(rLon / 1000000.0);
+  double lat2Rad = degToRad(getRocketLatDeg());
+  double lon2Rad = degToRad(getRocketLonDeg());
   
   double dLat = lat2Rad - lat1Rad;
   double dLon = lon2Rad - lon1Rad;
@@ -67,20 +65,20 @@ void handleGPS() {
 }
 
 void calculateRocketVelocity() {
-  static int32_t previousAltitude = 0;
+  static double previousAltitudeM = 0;
   static uint32_t lastTime = 0;
-  
+
   if (isRfmLastPacketValid() && millis() - getRfmLastRFReceived() < RFM_CONNECTED_TIMEOUT) {
     uint32_t currentTime = millis();
-    int32_t currentAltitude = getRocketAltitude();
-    
-    if (lastTime > 0 && previousAltitude > 0) {
-      float timeDiff = (currentTime - lastTime) / 1000.0;
-      float altDiff = currentAltitude - previousAltitude;
-      setRocketVelocity(altDiff / timeDiff);
+    double currentAltitudeM = getRocketAltitudeMeters();
+
+    if (lastTime > 0 && previousAltitudeM > 0) {
+      double timeDiff = (currentTime - lastTime) / 1000.0;  // seconds
+      double altDiff = currentAltitudeM - previousAltitudeM; // meters
+      setRocketVelocity(altDiff / timeDiff);                 // m/s
     }
-    
-    previousAltitude = currentAltitude;
+
+    previousAltitudeM = currentAltitudeM;
     lastTime = currentTime;
   }
 }

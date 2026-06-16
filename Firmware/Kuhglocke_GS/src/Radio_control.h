@@ -26,9 +26,15 @@ bool isRfmLastPacketValid();
 int32_t getRocketGPSLat();
 int32_t getRocketGPSLon();
 uint8_t getRocketGPSSats();
-int32_t getRocketAltitude();
 uint8_t getRocketStatus();
 double getRocketVelocity();
+
+// Engineering-unit accessors: the single place the aim_catalog wire scaling
+// (GPS degrees x10^7, altitude meters x100) is undone. Display/derived code
+// must use these, never the raw catalog-unit getters above.
+double getRocketLatDeg();
+double getRocketLonDeg();
+double getRocketAltitudeMeters();
 
 void setRocketVelocity(double vel);
 
