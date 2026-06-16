@@ -29,7 +29,6 @@ uint8_t getRocketGPSSats();
 int32_t getRocketAltitude();
 uint8_t getRocketStatus();
 double getRocketVelocity();
-const char* getRocketCallsign();
 
 void setRocketVelocity(double vel);
 

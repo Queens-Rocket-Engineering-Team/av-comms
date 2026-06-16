@@ -132,11 +132,11 @@ void configWebServer() {
 
     // RcktSats,RcktLat,RcktLon,RcktAltm,RcktStatus,RcktCallsign
     res->print(','); res->print(getRocketGPSSats());
-    res->print(','); res->print(getRocketGPSLat() / 1000000.0, 6);
-    res->print(','); res->print(getRocketGPSLon() / 1000000.0, 6);
-    res->print(','); res->print(getRocketAltitude());
+    res->print(','); res->print(getRocketGPSLat() / 10000000.0, 6);
+    res->print(','); res->print(getRocketGPSLon() / 10000000.0, 6);
+    res->print(','); res->print(getRocketAltitude() / 100.0, 1);
     res->print(','); res->print(getRocketStatus(), BIN);
-    res->print(','); res->print(getRocketCallsign());
+    res->print(','); res->print("QRET");
 
     res->print(','); res->print(getCurFreqOffset());
     res->print(','); res->print(getCore0FreeStack());

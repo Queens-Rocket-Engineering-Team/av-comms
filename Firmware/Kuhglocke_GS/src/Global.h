@@ -31,7 +31,7 @@ inline constexpr uint16_t IND_RF_FLASH_TIME = 130;     // ms
 inline constexpr uint16_t IND_BATTERY_FLASH_GAP = 750; // ms
 
 inline constexpr uint16_t RFM_CONNECTED_TIMEOUT = 2000; // ms
-inline constexpr uint8_t  RFM_PACKET_SIZE = 20;
+inline constexpr uint8_t  RFM_PACKET_SIZE = 10;
 
 inline constexpr uint32_t LOCAL_GPS_LOG_RATE = 1000;
 inline constexpr uint32_t ALT_CORE_STACKS_SIZE = 10000;

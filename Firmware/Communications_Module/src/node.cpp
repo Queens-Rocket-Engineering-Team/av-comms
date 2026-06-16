@@ -1,26 +1,108 @@
 #include "node.h"
 #include <aim_job.h>
 #include <logger.h>
+#include <SPI.h>
+#include <RadioLib.h>
 
-// The six AIM nodes Comms tracks for liveness. Comms itself is included so the
-// console table is complete; its own row simply never goes stale.
+// The six AIM nodes Comms tracks for liveness.
 static constexpr uint8_t kTrackedNodes = 6U;
 static NodeLiveness s_liveness[kTrackedNodes];
 
+// LoRa SPI & Radio Objects
+static SPIClass s_loraSpi(pins::kRfMosi, pins::kRfMiso, pins::kRfSclk);
+static Module s_radioModule(pins::kRfCs, pins::kRfDio1, pins::kRfReset, pins::kRfBusy, s_loraSpi);
+static SX1262 s_radio(&s_radioModule);
+
+// TX Queue for non-blocking LoRa transmission
+static constexpr uint8_t kQueueSize = 16U;
+static aim::Msg s_txQueue[kQueueSize];
+static volatile uint8_t s_queueHead = 0U;
+static volatile uint8_t s_queueTail = 0U;
+static bool s_transmitting = false;
+static volatile bool s_transmittedFlag = false;
+
+static void setTxFlag(void) {
+  s_transmittedFlag = true;
+}
+
+static bool enqueueTx(const aim::Msg& m) {
+  uint8_t nextHead = (s_queueHead + 1U) % kQueueSize;
+  if (nextHead == s_queueTail) {
+    return false; // Queue full
+  }
+  s_txQueue[s_queueHead] = m;
+  s_queueHead = nextHead;
+  return true;
+}
+
+static bool dequeueTx(aim::Msg& m) {
+  if (s_queueHead == s_queueTail) {
+    return false; // Queue empty
+  }
+  m = s_txQueue[s_queueTail];
+  s_queueTail = (s_queueTail + 1U) % kQueueSize;
+  return true;
+}
+
 void nodeInit(uint32_t nowMs) {
   nodeLivenessInit(nowMs);
+
+  s_loraSpi.begin();
+  s_radio.reset();
+  delay(100);
+  int state = s_radio.begin();
+  if (state == RADIOLIB_ERR_NONE) {
+    LOG_INFO("LoRa SX1262 init success");
+  } else {
+    LOG_ERROR("LoRa SX1262 init failed, code %d", state);
+  }
+
+  s_radio.setDio1Action(setTxFlag);
+
+  s_radio.setFrequency(905.4);
+  s_radio.setBandwidth(62.5);
+  s_radio.setSpreadingFactor(10);
+  s_radio.setCodingRate(6);
+  s_radio.setOutputPower(20);
+  s_radio.setSyncWord(0x12);
+  s_radio.setPreambleLength(8);
+  s_radio.setCRC(true);
 }
 
 void nodeUpdate(uint32_t nowMs) {
-  // Stub: LoRa RX processing will go here once the radio driver is wired in.
   (void)nowMs;
+
+  if (s_transmitting) {
+    if (s_transmittedFlag) {
+      s_transmittedFlag = false;
+      s_radio.finishTransmit();
+      s_transmitting = false;
+    } else {
+      return; // Still transmitting
+    }
+  }
+
+  if (!s_transmitting) {
+    aim::Msg m;
+    if (dequeueTx(m)) {
+      uint8_t packet[10];
+      packet[0] = (static_cast<uint8_t>(m.cls) << 4) | (static_cast<uint8_t>(m.source) & 0x0F);
+      packet[1] = m.subject;
+      memcpy(&packet[2], m.b, 4);
+      memcpy(&packet[6], &m.timestampMs, 4);
+
+      int state = s_radio.startTransmit(packet, 10);
+      if (state == RADIOLIB_ERR_NONE) {
+        s_transmitting = true;
+      } else {
+        LOG_ERROR("LoRa startTransmit failed, code %d", state);
+      }
+    }
+  }
 }
 
 void nodeServiceCanTx(uint32_t nowMs, AimNetwork& aim) {
 #ifdef AIM_COMMS_TIME_MASTER
-  // No-UCM configuration: Comms is the sole TimeSync source from startup,
-  // broadcasting at 1 Hz from its local clock (send() stamps syncedMillis(),
-  // which equals millis() because Comms never receives TimeSync here).
   static aim::Job s_timeSyncJob{1000U};
   if (s_timeSyncJob.due(nowMs)) {
     aim::Msg m = {};
@@ -74,11 +156,14 @@ static bool s_lowPower = false;
 
 void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
   nodeLivenessOnRx(m.source, nowMs);
-  
+
   if (m.cls == aim::Class::Event && m.subject == aim::subject::LowPower) {
     s_lowPower = (m.b[0] == 1U);
     LOG_INFO("Comms low power state updated: %d", s_lowPower);
   }
+
+  // Enqueue message for LoRa downlink forwarding
+  enqueueTx(m);
 }
 
 aim::NodeState nodeCurrentState() {

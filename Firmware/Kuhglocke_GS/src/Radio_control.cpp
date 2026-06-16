@@ -4,6 +4,7 @@
 #include "User_interface.h"
 #include <SPI.h>
 #include <RadioLib.h>
+#include <aim_catalog.h>
 
 // Static state variables
 static double s_freqOpts[] = {902.0, 905.4, 928.0};
@@ -35,16 +36,21 @@ static volatile uint8_t s_rocketGPSSats = 0;
 static volatile int32_t s_rocketAltitude = 0;
 static volatile uint8_t s_rocketStatus = 0;
 static volatile double s_rocketVelocity = 0;
-static volatile char s_rocketCallsign[7] = {'-', '-', '-', '-', '-', '-', '\0'};
 
 static int32_t s_curFreqOffset = 0;
 static volatile bool s_rfmReceivedFlag = false;
+
+// Source liveness tracker for "SRAD OK" status
+static uint32_t s_lastHeardGps = 0;
+static uint32_t s_lastHeardAltimeter = 0;
+static uint32_t s_lastHeardUcmLcm = 0;
 
 // SPI + Radio Objects
 static SPIClass s_rfmSPI(HSPI);
 static SPISettings s_rfmSPISettings(RFM_SPI_CLOCK, MSBFIRST, SPI_MODE0);
 static Module s_radioModule(pins::kRfCs, pins::kRfDio0, pins::kRfReset, pins::kRfDio1, s_rfmSPI, s_rfmSPISettings);
 static RFM95 s_radio(&s_radioModule);
+
 static String byteArrayToHexString(const byte* byteArray, int length) {
   String hexString;
   hexString.reserve(length * 2);
@@ -126,16 +132,45 @@ void onRFMReceive() {
 
   s_rfmLastPacketValid = true;
 
-  // Cast volatile destination array
-  memcpy((char*)s_rocketCallsign, rfmPayload, 6);
-  
-  s_rocketGPSLat = (rfmPayload[9] << 24) + (rfmPayload[8] << 16) + (rfmPayload[7] << 8) + rfmPayload[6];
-  s_rocketGPSLon = (rfmPayload[13] << 24) + (rfmPayload[12] << 16) + (rfmPayload[11] << 8) + rfmPayload[10];
-  s_rocketGPSSats = rfmPayload[14];
-  s_rocketAltitude = (rfmPayload[18] << 24) + (rfmPayload[17] << 16) + (rfmPayload[16] << 8) + rfmPayload[15];
-  s_rocketStatus = rfmPayload[19];
+  // Extract AIM fields from the 10-byte framed record
+  aim::Class cls = static_cast<aim::Class>(rfmPayload[0] >> 4);
+  aim::Source src = static_cast<aim::Source>(rfmPayload[0] & 0x0F);
+  uint8_t subject = rfmPayload[1];
 
-  s_rfmLastRFReceived = millis();
+  int32_t value;
+  memcpy(&value, &rfmPayload[2], 4);
+
+  // Update source liveness
+  uint32_t nowMs = millis();
+  if (src == aim::Source::Gps) {
+    s_lastHeardGps = nowMs;
+  } else if (src == aim::Source::Altimeter) {
+    s_lastHeardAltimeter = nowMs;
+  } else if (src == aim::Source::Ucm || src == aim::Source::Lcm || src == aim::Source::Power) {
+    s_lastHeardUcmLcm = nowMs;
+  }
+
+  // Derive rocket status (seenGPS=bit0, seenAltimeter=bit1, seenSensors=bit2)
+  uint8_t status = 0;
+  if (nowMs - s_lastHeardGps < 5000) status |= 1;
+  if (nowMs - s_lastHeardAltimeter < 5000) status |= 2;
+  if (nowMs - s_lastHeardUcmLcm < 5000) status |= 4;
+  s_rocketStatus = status;
+
+  // Map fields from subject catalog
+  if (cls == aim::Class::Sensor) {
+    if (subject == aim::subject::GpsLat) {
+      s_rocketGPSLat = value;
+    } else if (subject == aim::subject::GpsLon) {
+      s_rocketGPSLon = value;
+    } else if (subject == aim::subject::GpsNumSats) {
+      s_rocketGPSSats = value;
+    } else if (subject == aim::subject::Altitude) {
+      s_rocketAltitude = value;
+    }
+  }
+
+  s_rfmLastRFReceived = nowMs;
   triggerRFFlash();
   s_rfmLastRSSI = s_radio.getRSSI();
   s_rfmLastSNR = s_radio.getSNR();
@@ -154,8 +189,8 @@ void onRFMReceive() {
   char logBuf2[100];
   snprintf(logBuf2, sizeof(logBuf2), "RocketData:%u,%.6f,%.6f,%d,%.2f,%u",
            s_rocketGPSSats,
-           s_rocketGPSLat / 1000000.0,
-           s_rocketGPSLon / 1000000.0,
+           s_rocketGPSLat / 10000000.0,
+           s_rocketGPSLon / 10000000.0,
            s_rocketAltitude,
            s_rocketVelocity,
            s_rocketStatus);
@@ -232,10 +267,6 @@ uint8_t getRocketStatus() {
 
 double getRocketVelocity() {
   return s_rocketVelocity;
-}
-
-const char* getRocketCallsign() {
-  return (const char*)s_rocketCallsign;
 }
 
 void setRocketVelocity(double vel) {
