@@ -1,72 +1,41 @@
-/*
- * Author: Kennan Bays (Kenneract)
- * Created: Aug.2.2024
- * Updated: Jun.11.2025
- * Purpose: Testing firmware for the Kuhglocke ground station
- * Hardware: QRET Kuhglocke ground station V1.0 (ESP32-S3-N16R2; 16MiB Flash (QSPI), 2MiB PSRAM (QSPI))
- * Environment: Arduino IDE 1.8.10, ESP32 Core V2.0.5, ESPtool.py V4.2.1
- *                                                     NOTE: ESPtool.py only compatible with Arduino IDE 1.x
- * 
- * Suggested Configration:
- * - Board: ESP32S3 Dev Module
- * - Upload Speed: 921600
- * - USB Mode: Hardware CDC and JTAG [IMPORTANT]
- * - USB CDC On Boot: Disabled
- * - USB Firmware MSC On Boot: Disabled
- * - USB DFU On Boot: Disabled
- * - Upload Mode: UART0 / Hardware CDC [IMPORTANT]
- * - CPU Frequency: 240MHz (WiFi)
- * - Flash Mode: QIO 80MHz
- * - Flash Size: 16MB (128Mb) [IMPORTANT]
- * - Partition Scheme: 8M with SPIFFS (3MB APP/1.5MB SPIFFS) [IMPORTANT]
- * - Core Debug Level: None
- * - PSRAM: QSPI PSRAM [IMPORTANT]
- * - Arduino Runs On: Core 1 [IMPORTANT]
- * - Events Run On: Core 1 [IMPORTANT]
- * - Erase All Flash Before Sketch Upload: Disabled
- * 
- * Use the ESP32FS.jar plugin for uploading data to SPIFFS
- * 
- * Onboard Peripherals
- *  - Temperature Sensor
- *  - MicroSD Card
- *  - GPS
- *  - LoRa Radio
- *  - Speaker
- *  - I2C ADC
- *    - Battery Sense
- *    - Current Sense
- *  - RGB LEDs
- *  - Batt voltage
- *  - Current sense
- *  
- */
-
-
 #include <Arduino.h>
-#include "libraries.h"
-
-// Forward declarations
-void loopAltCoreHandler(void * pvParameters);
-void loopAltCore();
-void configWebServer();
-
-
-
-
-
-
-
-
+#include "Global.h"
+#include "pinouts.h"
+#include "power_sensors.h"
+#include "Radio_control.h"
+#include "Screen_control.h"
+#include "User_interface.h"
+#include "GPS.h"
+#include "SD_MMC.h"
+#include "SPIFFS.h"
+#include "WiFi.h"
+#include <Wire.h>
+#include <MedianFilterLib.h>
 
 
+// Forward declarations of Core0 entrypoint
+static void loopAltCoreHandler(void* pvParameters);
+static void loopAltCore();
+
+// Declared in web_endpoints.cpp
+void startWebServer();
+
+// Static Task Handles and stats
+static TaskHandle_t s_core0Task = nullptr;
+static MedianFilter<uint16_t> s_core1LoopFilter(8);
+
+static volatile uint32_t s_core0FreeStack = 0;
+static volatile uint32_t s_core0LoopTime = 0;
+static volatile uint32_t s_core0MaxLoopTime = 0;
+static uint32_t s_core1MaxLoopTime = 0;
+static uint32_t s_lastEPDUpdate = 0;
 
 void setup() {
   // Configure pinmodes
   pinMode(pins::kDisable5v, OUTPUT);
   pinMode(pins::kDebugLed, OUTPUT);
   pinMode(pins::kGpsReset, OUTPUT);
-  digitalWrite(pins::kGpsReset, HIGH); //TODO: NESSESARY??
+  digitalWrite(pins::kGpsReset, HIGH);
   pinMode(pins::kMenuBtns, INPUT);
   pinMode(pins::kChrgStat, INPUT);
   analogReadResolution(12);
@@ -74,43 +43,16 @@ void setup() {
   // Ensure USB mode is PWR+DATA by default
   setUSBDataOnlyMode(false);
 
-  // Add WS2812B
-  rgbLEDs.begin(); // initialize WS2812Bs
-  setRGB(0,0,0);
-  setLEDBrightness(DEFAULT_LED_BRIGHTNESS);
-  // Set power LED to "loading"
-  setRGB(0,128,32,0);
+  // Initialize LEDs
+  initLEDs();
+  setRGB(0, 128, 32, 0); // Power LED to loading
 
   // Start USB Serial
   Serial.begin(USB_BAUD);
 
-  // Prepare SPI busses
-  epdSPI.begin(pins::kEinkSck, pins::kEinkMiso, pins::kEinkMosi, pins::kEinkCs);
-  rfmSPI.begin(pins::kRfSck, pins::kRfMiso, pins::kRfMosi, pins::kRfCs);
-  pinMode(epdSPI.pinSS(), OUTPUT);
-  pinMode(rfmSPI.pinSS(), OUTPUT);
-
-  // Initialize E-Paper Display (EPD)
-  display.init(EPD_BAUD, true, 2, false, epdSPI, SPISettings(EPD_SPI_CLOCK, MSBFIRST, SPI_MODE0));
-  display.setRotation(1);
-
-  display.setTextColor(GxEPD_BLACK);
-  display.firstPage();
-  do {
-    display.fillScreen(GxEPD_WHITE);
-    display.setTextSize(1);
-    display.println(String("QRET Kuhglocke    FW=") + FIRMWARE_VERSION);
-    display.setCursor(30,20);
-    display.setTextSize(7);
-    display.println("QRET");
-    display.setTextSize(2);
-    display.println("     Loading");
-
-    display.setTextSize(1);
-    display.setCursor(0,112);
-    display.println("POWER  BATT    RADIO   SRADOK   GPS FIX");
-    
-  } while (display.nextPage());
+  // Initialize E-Paper Display
+  screenInit();
+  drawLoadingScreen();
 
   // Configure I2C Bus
   Wire.begin(pins::kI2cSda, pins::kI2cScl);
@@ -124,10 +66,10 @@ void setup() {
     Serial.println("SD: Card Mount Success");
     makeNextSDLog();
     writeToSDLog("Kuhglocke SD card initialized");
-  }//if (SD OK)
+  }
 
   // Initialize NAU7802 ADC
-  initNAU7802();
+  initPowerSensors();
 
   // Initialize GPS
   gpsInit(); 
@@ -136,38 +78,35 @@ void setup() {
   rfmInit();
 
   // Initialize SPIFFS
-  if(!SPIFFS.begin(true)){
+  if (!SPIFFS.begin(true)) {
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
-  }//if
+  }
 
   // Launch WiFi AP
-  WiFi.begin(AP_SSID, AP_PASSWORD);//TODO: Change to names to WIFI_SSID,WIFI_PASSWORD
+  WiFi.begin(AP_SSID, AP_PASSWORD);
   WiFi.setTxPower(WIFI_TX_POWER);
   uint32_t wifiConnectStart = millis();
-while (WiFi.status() != WL_CONNECTED && millis() - wifiConnectStart < 1000) {  // 1 second timeout
+  while (WiFi.status() != WL_CONNECTED && millis() - wifiConnectStart < 1000) {  // 1 second timeout
     delay(500);
-    Serial.print(".");//conntect status
-}// while
+    Serial.print(".");
+  }
  
-if (WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED) {
     IPAddress IP = WiFi.localIP();
     Serial.println("\nWiFi connected!");
     Serial.print("IP address: ");
     Serial.println(IP);
-} else {
+  } else {
     Serial.println("\nWiFi connection failed - falling back to AP mode");
-    // Fallback to AP mode if station fails
     WiFi.softAP(AP_SSID, AP_PASSWORD, WIFI_CHANNEL);
     IPAddress IP = WiFi.softAPIP();
     Serial.print("Fallback AP IP address: ");
     Serial.println(IP);
-}
+  }
 
   // Configure Async web server
-  configWebServer();
-  webServer.begin();
-
+  startWebServer();
   
   // Launch background task for Core 0
   xTaskCreatePinnedToCore(
@@ -176,93 +115,80 @@ if (WiFi.status() == WL_CONNECTED) {
       ALT_CORE_STACKS_SIZE, // Stack size
       NULL,                 // Task input parameter
       1,                    // Priority of the task
-      &Core0Task,           // Task handle
+      &s_core0Task,         // Task handle
       0                     // Core number
   );
-  
 
   // Set power LED to "ready"
-  setRGB(0,0,128,0); //Turn on power LED
+  setRGB(0, 0, 128, 0); // Turn on power LED
   Serial.println("Kuhglocke Initialization Complete!");
-  
-}//setup()
+}
 
-
-/*
- * Code to run repeatedly
- */
 void loop() {
-  // Note loop start time
   uint32_t loopStart = millis();
   
-  
   handleGPS();
-  handleReadSensors();
+  handleReadPowerSensors();
   handleLEDs();
+  
   if (analogRead(pins::kMenuBtns) > 40) {
     setLEDBrightness(255);
-
   } else {
     setLEDBrightness(DEFAULT_LED_BRIGHTNESS);
-
   }
 
   // Check for incoming RFM95 packets
-  if (rfmReceivedFlag) {
-    // Reset flag
-    rfmReceivedFlag = false;
+  if (getRfmReceivedFlag()) {
+    clearRfmReceivedFlag();
     onRFMReceive();
-  }//if (rfm recv)
+  }
 
-  // Note loop execution time
-  uint16_t core1LoopTime = (millis()-loopStart);
-  core1LoopFilter.AddValue(core1LoopTime);
-  if (core1LoopTime > maxCore1LoopTime) {maxCore1LoopTime = core1LoopTime;}
+  uint16_t core1LoopTime = (millis() - loopStart);
+  s_core1LoopFilter.AddValue(core1LoopTime);
+  if (core1LoopTime > s_core1MaxLoopTime) {
+    s_core1MaxLoopTime = core1LoopTime;
+  }
+}
 
-
-
-}//loop()
-
-
-/*
- * Run as a task on Core0; runs the alternate loop
- * function indefinitely.
- */
-void loopAltCoreHandler(void * pvParameters) {
+static void loopAltCoreHandler(void* pvParameters) {
   Serial.println("Starting background thread on Core0");
   while (true) {
     loopAltCore();
-  }//while
-}//loopAltCoreHandler()
+  }
+}
 
-
-/*
- * Like loop(), but runs on Core0 of the ESP32
- * 
- * Make sure you use a MUTEX when exchanging
- * lots of info with Core1.
- * 
- * NOTE: STACK SIZE IS LIMITED HERE.
- */
-void loopAltCore() {
-  // Note loop start time
+static void loopAltCore() {
   uint32_t loopStart = millis();
   
-//  Serial.print("AltCore Loop: ");
-//  Serial.println(core0FreeStack);
-//  delay(100);
-
-  // Check to update EPD
-  if (millis() - lastEPDUpdate > EPD_UPDATE_INT) {
-    lastEPDUpdate = millis();
+  if (millis() - s_lastEPDUpdate > EPD_UPDATE_INT) {
+    s_lastEPDUpdate = millis();
     updateEPD();
-  }//if
+  }
 
-  //for reading sensors or updating the EPD, and maybe playing audio
+  s_core0FreeStack = uxTaskGetStackHighWaterMark(NULL);
+  s_core0LoopTime = (millis() - loopStart);
+  if (s_core0LoopTime > s_core0MaxLoopTime) {
+    s_core0MaxLoopTime = s_core0LoopTime;
+  }
+}
 
-  // Note free stack space
-  core0FreeStack = uxTaskGetStackHighWaterMark(NULL);
-  // Note loop execution time
-  core0LoopTime = (millis()-loopStart);
-  if (core0LoopTime > maxCore0LoopTime) {maxCore0LoopTime = core0LoopTime;}
-}//loopAltCore()
+// Accessors for loop and core statistics
+uint16_t getCore1LoopFiltered() {
+  return s_core1LoopFilter.GetFiltered();
+}
+
+uint32_t getCore1MaxLoopTime() {
+  return s_core1MaxLoopTime;
+}
+
+uint32_t getCore0FreeStack() {
+  return s_core0FreeStack;
+}
+
+uint32_t getCore0LoopTime() {
+  return s_core0LoopTime;
+}
+
+uint32_t getCore0MaxLoopTime() {
+  return s_core0MaxLoopTime;
+}
