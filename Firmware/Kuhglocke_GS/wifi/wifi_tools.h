@@ -1,5 +1,7 @@
 #pragma once
 
+// Vendored QLCP socket transport. Duplicates av-prop/Firmware/Upper_Control/wifi/;
+
 #include <esp_err.h>
 #include <esp_netif.h>
 #include <netdb.h>

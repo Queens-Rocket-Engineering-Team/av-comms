@@ -26,7 +26,6 @@ static volatile uint32_t s_rfmLastRFReceived = 0;
 static volatile int16_t s_rfmLastRSSI = 0;
 static volatile float s_rfmLastSNR = 0;
 static volatile int32_t s_rfmLastFreqErr = 0;
-static uint8_t s_rfmLastPacket[kRfmPacketSize] = {0};
 static volatile bool s_rfmLastPacketValid = false;
 
 static volatile int32_t s_rocketGPSLat = 0;
@@ -183,7 +182,6 @@ void onRFMReceive() {
   s_rfmLastRSSI = s_radio.getRSSI();
   s_rfmLastSNR = s_radio.getSNR();
   s_rfmLastFreqErr = s_radio.getFrequencyError();
-  memcpy(s_rfmLastPacket, rfmPayload, kRfmPacketSize);
   portEXIT_CRITICAL(&s_rocketMux);
 
   triggerRFFlash();
@@ -260,11 +258,6 @@ float getRfmLastSNR() {
 
 
 
-void getRfmLastPacket(uint8_t* dest) {
-  portENTER_CRITICAL(&s_rocketMux);
-  memcpy(dest, s_rfmLastPacket, kRfmPacketSize);
-  portEXIT_CRITICAL(&s_rocketMux);
-}
 
 bool isRfmLastPacketValid() {
   portENTER_CRITICAL(&s_rocketMux);

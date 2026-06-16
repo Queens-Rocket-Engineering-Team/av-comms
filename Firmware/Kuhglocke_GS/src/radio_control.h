@@ -20,7 +20,6 @@ uint32_t getRfmLastRFReceived();
 int16_t getRfmLastRSSI();
 float getRfmLastSNR();
 
-void getRfmLastPacket(uint8_t* dest);
 bool isRfmLastPacketValid();
 
 // Getter/Setter functions for decoded rocket packet data

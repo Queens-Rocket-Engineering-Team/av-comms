@@ -17,6 +17,7 @@ inline constexpr uint32_t kRfmSpiClock  = 2000000; // 2MHz
 inline constexpr uint32_t kI2cSpeed      = 100000;  // 100kHz
 
 // Strings: use inline constexpr char[]
+// Launch-control network credentials: set before flight; intentionally empty in VCS.
 inline constexpr const char kSsid[]     = "";
 inline constexpr const char kPassword[] = "";
 
