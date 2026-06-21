@@ -81,8 +81,6 @@ void setup(void) {
     LOG_ERROR("CAN init failed");
   }
 
-  nodeInit(millis());
-
   if (!g_fs.begin()) {
     LOG_WARN("Filesystem mount failed");
   } else if (!g_recorder.begin()) {
@@ -95,7 +93,7 @@ void setup(void) {
   uint8_t nodeHookCount = 0U;
   const AimConsoleHook* nodeHooks = nodeConsoleHooks(nodeHookCount);
 
-  AimConsoleHook combinedHooks[8];
+  static AimConsoleHook combinedHooks[8];
   uint8_t totalHooks = 0;
   combinedHooks[totalHooks++] = {'s', "status", hookStatus};
   for (uint8_t i = 0; i < nodeHookCount && totalHooks < 8; i++) {
@@ -104,16 +102,17 @@ void setup(void) {
   aimConsoleInit(g_serial, g_fs, g_recorder, node::kName, combinedHooks, totalHooks);
   g_serial.println("Console ready. d=enter debug");
 #endif
+
+  nodeInit();
 }
 
 void loop(void) {
-  const uint32_t schedulerNowMs = millis();
+  const uint32_t nowMs = millis();
 
-  // Core work runs every loop, even while the console is active.
   serviceCanRx();
-  nodeUpdate(schedulerNowMs);
-  nodeServiceCanTx(schedulerNowMs, g_aim);
-  g_aim.service(schedulerNowMs, nodeCurrentState(), nodeErrorBits());   // heartbeat fills bus silence
+  nodeUpdate(nowMs);
+  nodeServiceCanTx(nowMs, g_aim);
+  g_aim.service(nowMs, nodeCurrentState(), nodeErrorBits());   // heartbeat fills bus silence
 
 #ifndef FLIGHT_BUILD
   aimConsoleService();                            // owns console + flash dump/erase

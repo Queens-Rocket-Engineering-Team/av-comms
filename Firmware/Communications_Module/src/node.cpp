@@ -1,11 +1,12 @@
 #include "node.h"
+#include <Adafruit_NeoPixel.h>
 #include <aim_job.h>
 #include <logger.h>
 #include <SPI.h>
 #include <RadioLib.h>
 
-// The six AIM nodes Comms tracks for liveness.
-static constexpr uint8_t kTrackedNodes = 6U;
+// The 5 AIM nodes Comms tracks for liveness.
+static constexpr uint8_t kTrackedNodes = 5U;
 static NodeLiveness s_liveness[kTrackedNodes];
 
 // LoRa SPI & Radio Objects
@@ -20,6 +21,10 @@ static volatile uint8_t s_queueHead = 0U;
 static volatile uint8_t s_queueTail = 0U;
 static bool s_transmitting = false;
 static volatile bool s_transmittedFlag = false;
+static bool s_loraInitOk = false;
+static bool s_lowPower = false;
+
+static Adafruit_NeoPixel s_rgbLeds(1U, pins::kRgbData, NEO_GRB + NEO_KHZ800);
 
 static void setTxFlag(void) {
   s_transmittedFlag = true;
@@ -44,14 +49,66 @@ static bool dequeueTx(aim::Msg& m) {
   return true;
 }
 
-void nodeInit(uint32_t nowMs) {
-  nodeLivenessInit(nowMs);
+static void updateLed(aim::NodeState state) {
+  static aim::NodeState s_lastState = static_cast<aim::NodeState>(0xFF);
+  if (state == s_lastState) return;
+  s_lastState = state;
+  uint8_t r = 0, g = 0, b = 0;
+  switch (state) {
+    case aim::NodeState::Nominal: g = 255; break;
+    case aim::NodeState::Fault:   r = 255; break;
+    default:                      b = 255; break;
+  }
+  s_rgbLeds.setPixelColor(0, s_rgbLeds.Color(r, g, b));
+  s_rgbLeds.show();
+}
+
+void nodeLivenessInit(uint32_t nowMs) {
+  static const aim::Source kSources[kTrackedNodes] = {
+    aim::Source::Ucm,
+    aim::Source::Lcm,
+    aim::Source::Altimeter,
+    aim::Source::Gps,
+    aim::Source::Power,
+  };
+
+  for (uint8_t i = 0U; i < kTrackedNodes; i++) {
+    s_liveness[i].source = kSources[i];
+    s_liveness[i].lastHeardMs = nowMs;
+    s_liveness[i].everHeard = false;
+  }
+}
+
+void nodeLivenessOnRx(aim::Source source, uint32_t nowMs) {
+  for (uint8_t i = 0U; i < kTrackedNodes; i++) {
+    if (s_liveness[i].source == source) {
+      s_liveness[i].lastHeardMs = nowMs;
+      s_liveness[i].everHeard = true;
+      return;
+    }
+  }
+}
+
+const NodeLiveness* nodeLivenessTable(uint8_t* countOut) {
+  if (countOut != nullptr) {
+    *countOut = kTrackedNodes;
+  }
+  return s_liveness;
+}
+
+void nodeInit() {
+  nodeLivenessInit(millis());
+
+  s_rgbLeds.begin();
+  s_rgbLeds.setPixelColor(0, s_rgbLeds.Color(0, 0, 0));
+  s_rgbLeds.show();
 
   s_loraSpi.begin();
   s_radio.reset();
   delay(100);
   int state = s_radio.begin();
   if (state == RADIOLIB_ERR_NONE) {
+    s_loraInitOk = true;
     LOG_INFO("LoRa SX1262 init success");
   } else {
     LOG_ERROR("LoRa SX1262 init failed, code %d", state);
@@ -70,6 +127,7 @@ void nodeInit(uint32_t nowMs) {
 }
 
 void nodeUpdate(uint32_t nowMs) {
+  updateLed(nodeCurrentState());
   (void)nowMs;
 
   if (s_transmitting) {
@@ -103,7 +161,7 @@ void nodeUpdate(uint32_t nowMs) {
 
 void nodeServiceCanTx(uint32_t nowMs, AimNetwork& aim) {
 #ifdef AIM_COMMS_TIME_MASTER
-  static aim::Job s_timeSyncJob{1000U};
+  static aim::Job s_timeSyncJob{1000U, 0U};
   if (s_timeSyncJob.due(nowMs)) {
     aim::Msg m = {};
     m.cls = aim::Class::Time;
@@ -118,42 +176,6 @@ void nodeServiceCanTx(uint32_t nowMs, AimNetwork& aim) {
 #endif
 }
 
-void nodeLivenessInit(uint32_t nowMs) {
-  static const aim::Source kSources[kTrackedNodes] = {
-    aim::Source::Comms,
-    aim::Source::Ucm,
-    aim::Source::Lcm,
-    aim::Source::Altimeter,
-    aim::Source::Gps,
-    aim::Source::Power,
-  };
-
-  for (uint8_t i = 0U; i < kTrackedNodes; i++) {
-    s_liveness[i].source = kSources[i];
-    s_liveness[i].lastHeardMs = nowMs;
-    s_liveness[i].everHeard = false;
-  }
-}
-
-void nodeLivenessOnRx(aim::Source source, uint32_t nowMs) {
-  for (uint8_t i = 0U; i < kTrackedNodes; i++) {
-    if (s_liveness[i].source == source) {
-      s_liveness[i].lastHeardMs = nowMs;
-      s_liveness[i].everHeard = true;
-      return;
-    }
-  }
-}
-
-const NodeLiveness* nodeLivenessTable(uint8_t* countOut) {
-  if (countOut != nullptr) {
-    *countOut = kTrackedNodes;
-  }
-  return s_liveness;
-}
-
-static bool s_lowPower = false;
-
 void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
   nodeLivenessOnRx(m.source, nowMs);
 
@@ -167,6 +189,9 @@ void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
 }
 
 aim::NodeState nodeCurrentState() {
+  if (!s_loraInitOk) {
+    return aim::NodeState::Fault;
+  }
   return aim::NodeState::Nominal;
 }
 

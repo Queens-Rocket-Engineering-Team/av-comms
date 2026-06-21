@@ -10,8 +10,8 @@ namespace pins {
 // --- Serial (USB-UART Bridge; TX/RX are swapped on the PCB) ---
 //  !!! Fix in next board spin !!!
 //  Use software serial
-constexpr uint8_t kSerialTx = PB10; // USART_TX -> USB_RX
-constexpr uint8_t kSerialRx = PB11; // USART_RX <- USB_TX
+constexpr uint8_t kSerialTx = PB11; // USART_TX -> USB_RX
+constexpr uint8_t kSerialRx = PB10; // USART_RX <- USB_TX
 
 // --- CAN bus ---
 constexpr uint8_t kCanRx = PB8;

@@ -12,9 +12,10 @@
 
 // Node-level identity and interface configuration lives in this file.
 namespace node {
-constexpr char     kName[]     = "COMMS_MODULE";
-constexpr uint32_t kCanBaud    = 500000U;
+constexpr char kName[] = "COMMS_MODULE";
+constexpr uint32_t kCanBaud = 500000U;
 constexpr uint32_t kSerialBaud = 38400U;
+const uint8_t kCallSign[6] = {'V','A','3','F','G','K'}; // VERY IMPORTANT; FILL OUT. MUST BE 6 CHARS
 }  // namespace node
 
 // --- Node liveness tracker ---
@@ -27,7 +28,7 @@ struct NodeLiveness {
   bool everHeard;
 };
 
-void nodeInit(uint32_t nowMs);
+void nodeInit();
 void nodeUpdate(uint32_t nowMs);
 void nodeServiceCanTx(uint32_t nowMs, AimNetwork& aim);
 void nodeOnRx(const aim::Msg& m, uint32_t nowMs);
