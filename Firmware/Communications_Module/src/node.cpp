@@ -4,10 +4,9 @@
 #include <logger.h>
 #include <SPI.h>
 #include <RadioLib.h>
+#include <lora_link.h>
 
-// The 5 AIM nodes Comms tracks for liveness.
-static constexpr uint8_t kTrackedNodes = 5U;
-static NodeLiveness s_liveness[kTrackedNodes];
+static NodeLiveness s_liveness[lora::kTrackedNodeCount];
 
 // LoRa SPI & Radio Objects
 static SPIClass s_loraSpi(pins::kRfMosi, pins::kRfMiso, pins::kRfSclk);
@@ -64,23 +63,15 @@ static void updateLed(aim::NodeState state) {
 }
 
 void nodeLivenessInit(uint32_t nowMs) {
-  static const aim::Source kSources[kTrackedNodes] = {
-    aim::Source::Ucm,
-    aim::Source::Lcm,
-    aim::Source::Altimeter,
-    aim::Source::Gps,
-    aim::Source::Power,
-  };
-
-  for (uint8_t i = 0U; i < kTrackedNodes; i++) {
-    s_liveness[i].source = kSources[i];
+  for (uint8_t i = 0U; i < lora::kTrackedNodeCount; i++) {
+    s_liveness[i].source = lora::kTrackedNodes[i].source;
     s_liveness[i].lastHeardMs = nowMs;
     s_liveness[i].everHeard = false;
   }
 }
 
 void nodeLivenessOnRx(aim::Source source, uint32_t nowMs) {
-  for (uint8_t i = 0U; i < kTrackedNodes; i++) {
+  for (uint8_t i = 0U; i < lora::kTrackedNodeCount; i++) {
     if (s_liveness[i].source == source) {
       s_liveness[i].lastHeardMs = nowMs;
       s_liveness[i].everHeard = true;
@@ -91,7 +82,7 @@ void nodeLivenessOnRx(aim::Source source, uint32_t nowMs) {
 
 const NodeLiveness* nodeLivenessTable(uint8_t* countOut) {
   if (countOut != nullptr) {
-    *countOut = kTrackedNodes;
+    *countOut = lora::kTrackedNodeCount;
   }
   return s_liveness;
 }
@@ -143,13 +134,17 @@ void nodeUpdate(uint32_t nowMs) {
   if (!s_transmitting) {
     aim::Msg m;
     if (dequeueTx(m)) {
-      uint8_t packet[10];
-      packet[0] = (static_cast<uint8_t>(m.cls) << 4) | (static_cast<uint8_t>(m.source) & 0x0F);
-      packet[1] = m.subject;
-      memcpy(&packet[2], m.b, 4);
-      memcpy(&packet[6], &m.timestampMs, 4);
+      lora::Packet pkt;
+      pkt.cls         = m.cls;
+      pkt.source      = m.source;
+      pkt.subject     = m.subject;
+      memcpy(&pkt.value, m.b, 4);
+      pkt.timestampMs = m.timestampMs;
 
-      int state = s_radio.startTransmit(packet, 10);
+      uint8_t buf[lora::kPacketSize];
+      lora::encode(pkt, buf);
+
+      int state = s_radio.startTransmit(buf, lora::kPacketSize);
       if (state == RADIOLIB_ERR_NONE) {
         s_transmitting = true;
       } else {
@@ -216,12 +211,11 @@ static void hookLiveness(Stream& out) {
   uint8_t count = 0U;
   const NodeLiveness* table = nodeLivenessTable(&count);
   const uint32_t nowMs = millis();
-  static constexpr uint32_t kLivenessTimeoutMs = 10000U;
 
   out.println("Node liveness:");
   for (uint8_t i = 0U; i < count; i++) {
     const uint32_t ageMs = nowMs - table[i].lastHeardMs;
-    const bool alive = table[i].everHeard && (ageMs < kLivenessTimeoutMs);
+    const bool alive = table[i].everHeard && (ageMs < lora::kNodeAliveTimeoutMs);
     out.print("  ");
     out.print(sourceName(table[i].source));
     out.print(" (0x");
