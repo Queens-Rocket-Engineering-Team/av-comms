@@ -6,6 +6,7 @@
 #include "screen_control.h"
 #include "user_interface.h"
 #include "gps.h"
+#include "menu.h"
 #include "SD_MMC.h"
 #include "WiFi.h"
 #include "qlcp_uplink.h"
@@ -16,8 +17,6 @@
 // Forward declarations of Core0 entrypoint
 static void loopAltCoreHandler(void* pvParameters);
 static void loopAltCore();
-
-
 
 // Static Task Handles and stats
 static TaskHandle_t s_core0Task = nullptr;
@@ -95,7 +94,10 @@ void setup() {
 
   // Initialize QLCP client
   qlcpUplinkInit();
-  
+
+  // Initialize menu system
+  menuInit();
+
   // Launch background task for Core 0
   xTaskCreatePinnedToCore(
       loopAltCoreHandler,   // Task function
@@ -119,11 +121,7 @@ void loop() {
   handleReadPowerSensors();
   handleLEDs();
   
-  if (analogRead(pins::kMenuBtns) > kButtonThreshold) {
-    setLEDBrightness(255);
-  } else {
-    setLEDBrightness(kDefaultLedBrightness);
-  }
+  menuService(millis());
 
   // Check for incoming RFM95 packets
   if (getRfmReceivedFlag()) {

@@ -3,6 +3,7 @@
 #include "radio_control.h"
 #include "power_sensors.h"
 #include "gps.h"
+#include <lora_link.h>
 extern "C" {
 #include "wifi_tools.h"
 #include <qlcp_lib.h>
@@ -11,63 +12,47 @@ extern "C" {
 #include <esp_netif.h>
 
 constexpr char kBoardQlcpConfigJson[] = R"json({
-  "device_name": "KUHGLOCKE-GS",
-  "device_type": "Ground Station",
+  "device_name": "GREG",
+  "device_type": "Sensor Monitor",
   "sensor_info": {
-    "gps": {
-      "RocketLat": {
-        "sensor_index": "RocketLat",
-        "unit": "deg"
-      },
-      "RocketLon": {
-        "sensor_index": "RocketLon",
-        "unit": "deg"
-      },
-      "RocketAlt": {
-        "sensor_index": "RocketAlt",
-        "unit": "m"
-      },
-      "RocketSats": {
-        "sensor_index": "RocketSats",
-        "unit": ""
-      }
+    "rocket_position": {
+      "Lat":  { "unit": "deg" },
+      "Lon":  { "unit": "deg" },
+      "Alt":  { "unit": "m" },
+      "Vel":  { "unit": "m/s" },
+      "Sats": { "unit": "" }
     },
-    "velocity": {
-      "RocketVel": {
-        "sensor_index": "RocketVel",
-        "unit": "m/s"
-      }
+    "rocket_nodes": {
+      "UCM": { "unit": "ms" },
+      "LCM": { "unit": "ms" },
+      "ALT": { "unit": "ms" },
+      "GPS": { "unit": "ms" },
+      "PWR": { "unit": "ms" }
     },
-    "radio": {
-      "RadioRssi": {
-        "sensor_index": "RadioRssi",
-        "unit": "dBm"
-      },
-      "RadioSnr": {
-        "sensor_index": "RadioSnr",
-        "unit": "dB"
-      }
+    "rocket_link": {
+      "RSSI":    { "unit": "dBm" },
+      "SNR":     { "unit": "dB" },
+      "FreqErr": { "unit": "Hz" },
+      "Packets": { "unit": "" },
+      "LinkAge": { "unit": "ms" }
+    },
+    "rocket_radio_config": {
+      "Freq": { "unit": "MHz" },
+      "BW":   { "unit": "kHz" },
+      "SF":   { "unit": "" },
+      "CR":   { "unit": "" }
+    },
+    "ground_station": {
+      "BattV":      { "unit": "V" },
+      "SysCurrent": { "unit": "A" },
+      "AmbTemp":    { "unit": "C" }
     },
     "voltage_sense": {
-      "GsBattery": {
-        "sensor_index": "GsBattery",
+      "RocketBatt": {
         "unit": "V"
       }
-    },
-    "current_sensor": {
-      "GsCurrent": {
-        "sensor_index": "GsCurrent",
-        "unit": "A"
-      }
-    },
-    "thermocouple": {
-      "GsTemp": {
-        "sensor_index": "GsTemp",
-        "unit": "C"
-      }
     }
-  },
-  "controls": {}
+  }
 })json";
 
 enum QlcpNetState : uint8_t {
@@ -114,62 +99,96 @@ static void netFail(uint32_t nowMs) {
 }
 
 static void sendTelemetry() {
-  qlcp_sensor_data readings[10] = {};
+  static constexpr uint8_t kSensorCount = 22U;
+  qlcp_sensor_data readings[kSensorCount] = {};
+  uint32_t nowMs = millis();
 
-  // 0. Rocket Lat
+  // Position (sensor_id 0-4)
   readings[0].sensor_id = 0;
   readings[0].unit = QLCP_UNIT_UNITLESS;
   readings[0].value = static_cast<float>(getRocketLatDeg());
 
-  // 1. Rocket Lon
   readings[1].sensor_id = 1;
   readings[1].unit = QLCP_UNIT_UNITLESS;
   readings[1].value = static_cast<float>(getRocketLonDeg());
 
-  // 2. Rocket Alt
   readings[2].sensor_id = 2;
   readings[2].unit = QLCP_UNIT_UNITLESS;
   readings[2].value = static_cast<float>(getRocketAltitudeMeters());
 
-  // 3. Rocket Sats
   readings[3].sensor_id = 3;
   readings[3].unit = QLCP_UNIT_UNITLESS;
-  readings[3].value = static_cast<float>(getRocketGPSSats());
+  readings[3].value = static_cast<float>(getRocketVelocity());
 
-  // 4. Rocket Velocity
   readings[4].sensor_id = 4;
   readings[4].unit = QLCP_UNIT_UNITLESS;
-  readings[4].value = static_cast<float>(getRocketVelocity());
+  readings[4].value = static_cast<float>(getRocketGPSSats());
 
-  // 5. Radio RSSI
-  readings[5].sensor_id = 5;
-  readings[5].unit = QLCP_UNIT_UNITLESS;
-  readings[5].value = static_cast<float>(getRfmLastRSSI());
+  // Node liveness (sensor_id 5-9): age in ms, -1 = never heard
+  const NodeStatus* nodes = getNodeStatusTable();
+  for (uint8_t i = 0; i < lora::kTrackedNodeCount; i++) {
+    readings[5 + i].sensor_id = 5 + i;
+    readings[5 + i].unit = QLCP_UNIT_MILLISECONDS;
+    readings[5 + i].value = nodes[i].everHeard
+        ? static_cast<float>(nowMs - nodes[i].lastHeardMs)
+        : -1.0f;
+  }
 
-  // 6. Radio SNR
-  readings[6].sensor_id = 6;
-  readings[6].unit = QLCP_UNIT_UNITLESS;
-  readings[6].value = static_cast<float>(getRfmLastSNR());
+  // Link quality (sensor_id 10-14)
+  readings[10].sensor_id = 10;
+  readings[10].unit = QLCP_UNIT_UNITLESS;
+  readings[10].value = static_cast<float>(getRfmLastRSSI());
 
-  // 7. GS Battery Voltage
-  readings[7].sensor_id = 7;
-  readings[7].unit = QLCP_UNIT_VOLTS;
-  readings[7].value = getBatteryVoltage() / 1000.0f;
+  readings[11].sensor_id = 11;
+  readings[11].unit = QLCP_UNIT_UNITLESS;
+  readings[11].value = static_cast<float>(getRfmLastSNR());
 
-  // 8. GS System Current
-  readings[8].sensor_id = 8;
-  readings[8].unit = QLCP_UNIT_AMPS;
-  readings[8].value = getSystemCurrent() / 1000.0f;
+  readings[12].sensor_id = 12;
+  readings[12].unit = QLCP_UNIT_HERTZ;
+  readings[12].value = static_cast<float>(getRfmLastFreqErr());
 
-  // 9. GS Ambient Temp
-  readings[9].sensor_id = 9;
-  readings[9].unit = QLCP_UNIT_CELSIUS;
-  readings[9].value = getAmbTemperature() / 100.0f;
+  readings[13].sensor_id = 13;
+  readings[13].unit = QLCP_UNIT_UNITLESS;
+  readings[13].value = static_cast<float>(getRfmPacketCount());
+
+  readings[14].sensor_id = 14;
+  readings[14].unit = QLCP_UNIT_MILLISECONDS;
+  readings[14].value = static_cast<float>(nowMs - getRfmLastRFReceived());
+
+  // Radio config (sensor_id 15-18)
+  readings[15].sensor_id = 15;
+  readings[15].unit = QLCP_UNIT_UNITLESS;
+  readings[15].value = static_cast<float>(getRadioFreq());
+
+  readings[16].sensor_id = 16;
+  readings[16].unit = QLCP_UNIT_UNITLESS;
+  readings[16].value = static_cast<float>(getRadioBandwidth());
+
+  readings[17].sensor_id = 17;
+  readings[17].unit = QLCP_UNIT_UNITLESS;
+  readings[17].value = static_cast<float>(getRadioSF());
+
+  readings[18].sensor_id = 18;
+  readings[18].unit = QLCP_UNIT_UNITLESS;
+  readings[18].value = static_cast<float>(getRadioCR());
+
+  // GS health (sensor_id 19-21)
+  readings[19].sensor_id = 19;
+  readings[19].unit = QLCP_UNIT_VOLTS;
+  readings[19].value = getBatteryVoltage() / 1000.0f;
+
+  readings[20].sensor_id = 20;
+  readings[20].unit = QLCP_UNIT_AMPS;
+  readings[20].value = getSystemCurrent() / 1000.0f;
+
+  readings[21].sensor_id = 21;
+  readings[21].unit = QLCP_UNIT_CELSIUS;
+  readings[21].value = getAmbTemperature() / 100.0f;
 
   qlcp_data_packet pkt = {};
   fillHeader(pkt.header);
   pkt.sensor_data = readings;
-  pkt.sensor_count = 10;
+  pkt.sensor_count = kSensorCount;
 
   (void)udp_send_data(&s_netLink, &pkt);
 }
@@ -261,51 +280,7 @@ static void qlcpHandlePacket(const qlcp_client_payload& in) {
       break;
     }
     case QLCP_PT_CONTROL: {
-      const uint8_t cmdId = in.payload_data.control.command_id;
-      const uint8_t state = in.payload_data.control.command_state;
-      Serial.printf("Received control cmdId=%u state=%u\n", cmdId, state);
-      
-      bool success = false;
-      switch (cmdId) {
-        case 0: // FreqUp
-          if (state == 1) {
-            changeFreqOffset(1000);
-            success = true;
-          }
-          break;
-        case 1: // FreqDown
-          if (state == 1) {
-            changeFreqOffset(-1000);
-            success = true;
-          }
-          break;
-        case 2: // RadioReload
-          if (state == 1) {
-            rfmInit();
-            success = true;
-          }
-          break;
-        case 3: // SetBandwidth
-          setRadioConfig("bandwidth", state);
-          success = true;
-          break;
-        case 4: // SetSpreadingFactor
-          setRadioConfig("spreadingfactor", state);
-          success = true;
-          break;
-        case 5: // SetCodingRate
-          setRadioConfig("codingrate", state);
-          success = true;
-          break;
-        default:
-          break;
-      }
-      
-      if (success) {
-        sendAck(QLCP_PT_CONTROL, in.payload_data.header_only.sequence);
-      } else {
-        sendNack(QLCP_PT_CONTROL, in.payload_data.header_only.sequence, QLCP_ERR_INVALID_PARAM);
-      }
+      sendNack(QLCP_PT_CONTROL, in.payload_data.header_only.sequence, QLCP_ERR_UNKNOWN_TYPE);
       break;
     }
     default: {

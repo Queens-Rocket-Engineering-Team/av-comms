@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <RadioLib.h>
 #include <aim_catalog.h>
+#include <lora_link.h>
 
 // Static state variables
 static double s_freqOpts[] = {902.0, 905.4, 928.0};
@@ -38,10 +39,24 @@ static volatile double s_rocketVelocity = 0;
 static int32_t s_curFreqOffset = 0;
 static volatile bool s_rfmReceivedFlag = false;
 
-// Source liveness tracker for "SRAD OK" status
-static uint32_t s_lastHeardGps = 0;
-static uint32_t s_lastHeardAltimeter = 0;
-static uint32_t s_lastHeardUcmLcm = 0;
+// Per-node liveness tracking — node list sourced from shared lora_link.
+static NodeStatus s_nodeStatus[lora::kTrackedNodeCount] = {
+  {lora::kTrackedNodes[0].name, 0, false},
+  {lora::kTrackedNodes[1].name, 0, false},
+  {lora::kTrackedNodes[2].name, 0, false},
+  {lora::kTrackedNodes[3].name, 0, false},
+  {lora::kTrackedNodes[4].name, 0, false},
+};
+
+static uint32_t s_packetCount = 0;
+
+// Radio editing state
+static bool    s_editActive = false;
+static uint8_t s_editParam = 0;       // 0=freq, 1=BW, 2=SF, 3=CR
+static uint8_t s_editFreqIdx;
+static uint8_t s_editBwIdx;
+static uint8_t s_editSfIdx;
+static uint8_t s_editCrIdx;
 
 // Mutex for cross-core synchronization
 static portMUX_TYPE s_rocketMux = portMUX_INITIALIZER_UNLOCKED;
@@ -121,9 +136,9 @@ void rfmInit() {
 }
 
 void onRFMReceive() {
-  byte rfmPayload[kRfmPacketSize];
-  
-  int state = s_radio.readData(rfmPayload, kRfmPacketSize);
+  uint8_t rfmPayload[lora::kPacketSize];
+
+  int state = s_radio.readData(rfmPayload, lora::kPacketSize);
 
   // Restart receiver immediately
   s_radio.startReceive();
@@ -136,45 +151,42 @@ void onRFMReceive() {
     return;
   }
 
-  // Extract AIM fields from the 10-byte framed record
-  aim::Class cls = static_cast<aim::Class>(rfmPayload[0] >> 4);
-  aim::Source src = static_cast<aim::Source>(rfmPayload[0] & 0x0F);
-  uint8_t subject = rfmPayload[1];
+  lora::Packet pkt = lora::decode(rfmPayload);
 
-  int32_t value;
-  memcpy(&value, &rfmPayload[2], 4);
-
-  // Update source liveness
+  // Update per-node liveness
   uint32_t nowMs = millis();
-  if (src == aim::Source::Gps) {
-    s_lastHeardGps = nowMs;
-  } else if (src == aim::Source::Altimeter) {
-    s_lastHeardAltimeter = nowMs;
-  } else if (src == aim::Source::Ucm || src == aim::Source::Lcm || src == aim::Source::Power) {
-    s_lastHeardUcmLcm = nowMs;
+  for (uint8_t i = 0; i < lora::kTrackedNodeCount; i++) {
+    if (lora::kTrackedNodes[i].source == pkt.source) {
+      s_nodeStatus[i].lastHeardMs = nowMs;
+      s_nodeStatus[i].everHeard = true;
+      break;
+    }
   }
+
+  s_packetCount++;
 
   // Derive rocket status (seenGPS=bit0, seenAltimeter=bit1, seenSensors=bit2)
   uint8_t status = 0;
-  if (nowMs - s_lastHeardGps < 5000) status |= 1;
-  if (nowMs - s_lastHeardAltimeter < 5000) status |= 2;
-  if (nowMs - s_lastHeardUcmLcm < 5000) status |= 4;
+  if (nowMs - s_nodeStatus[3].lastHeardMs < 5000) status |= 1; // GPS
+  if (nowMs - s_nodeStatus[2].lastHeardMs < 5000) status |= 2; // ALT
+  if ((nowMs - s_nodeStatus[0].lastHeardMs < 5000) ||
+      (nowMs - s_nodeStatus[1].lastHeardMs < 5000) ||
+      (nowMs - s_nodeStatus[4].lastHeardMs < 5000)) status |= 4; // UCM/LCM/PWR
 
   // Protect writes to shared variables
   portENTER_CRITICAL(&s_rocketMux);
   s_rfmLastPacketValid = true;
   s_rocketStatus = status;
 
-  // Map fields from subject catalog
-  if (cls == aim::Class::Sensor) {
-    if (subject == aim::subject::GpsLat) {
-      s_rocketGPSLat = value;
-    } else if (subject == aim::subject::GpsLon) {
-      s_rocketGPSLon = value;
-    } else if (subject == aim::subject::GpsNumSats) {
-      s_rocketGPSSats = value;
-    } else if (subject == aim::subject::Altitude) {
-      s_rocketAltitude = value;
+  if (pkt.cls == aim::Class::Sensor) {
+    if (pkt.subject == aim::subject::GpsLat) {
+      s_rocketGPSLat = pkt.value;
+    } else if (pkt.subject == aim::subject::GpsLon) {
+      s_rocketGPSLon = pkt.value;
+    } else if (pkt.subject == aim::subject::GpsNumSats) {
+      s_rocketGPSSats = pkt.value;
+    } else if (pkt.subject == aim::subject::Altitude) {
+      s_rocketAltitude = pkt.value;
     }
   }
 
@@ -186,9 +198,8 @@ void onRFMReceive() {
 
   triggerRFFlash();
 
-  // Local stack buffer for formatting hex
-  char hexBuf[kRfmPacketSize * 2 + 1];
-  byteArrayToHexStr(rfmPayload, kRfmPacketSize, hexBuf, sizeof(hexBuf));
+  char hexBuf[lora::kPacketSize * 2 + 1];
+  byteArrayToHexStr(rfmPayload, lora::kPacketSize, hexBuf, sizeof(hexBuf));
 
   char logBuf[100];
   snprintf(logBuf, sizeof(logBuf), "RocketPacket:%u,%d,%.1f,%d,%s",
@@ -255,7 +266,6 @@ float getRfmLastSNR() {
   portEXIT_CRITICAL(&s_rocketMux);
   return val;
 }
-
 
 
 
@@ -350,4 +360,101 @@ void setRadioConfig(const String& name, uint16_t value) {
       s_codingSelected = value;
     }
   }
+}
+
+int32_t getRfmLastFreqErr() {
+  portENTER_CRITICAL(&s_rocketMux);
+  int32_t val = s_rfmLastFreqErr;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
+}
+
+uint32_t getRfmPacketCount() {
+  return s_packetCount;
+}
+
+const NodeStatus* getNodeStatusTable() {
+  return s_nodeStatus;
+}
+
+// --- Radio parameter editing (driven by menu buttons) ---
+
+void radioEditBegin() {
+  s_editActive = true;
+  s_editParam = 0;
+  s_editFreqIdx = s_freqSelected;
+  s_editBwIdx = s_bandwidthSelected;
+  s_editSfIdx = s_spreadSelected;
+  s_editCrIdx = s_codingSelected;
+}
+
+void radioEditMove(int8_t dir) {
+  switch (s_editParam) {
+    case 0: // frequency
+      s_editFreqIdx = (s_editFreqIdx + 3 + dir) % 3;
+      break;
+    case 1: // bandwidth
+      s_editBwIdx = (s_editBwIdx + s_numBandwidthOpts + dir) % s_numBandwidthOpts;
+      break;
+    case 2: // spreading factor
+      s_editSfIdx = (s_editSfIdx + s_numSpreadOpts + dir) % s_numSpreadOpts;
+      break;
+    case 3: // coding rate
+      s_editCrIdx = (s_editCrIdx + s_numCodingOpts + dir) % s_numCodingOpts;
+      break;
+  }
+}
+
+void radioEditConfirm() {
+  if (s_editParam < 3) {
+    s_editParam++;
+  } else {
+    // Apply all changes
+    s_freqSelected = s_editFreqIdx;
+    s_bandwidthSelected = s_editBwIdx;
+    s_spreadSelected = s_editSfIdx;
+    s_codingSelected = s_editCrIdx;
+    s_editActive = false;
+    reapplyRadioConfig();
+  }
+}
+
+void radioEditCancel() {
+  s_editActive = false;
+}
+
+uint8_t radioEditParam() {
+  return s_editParam;
+}
+
+bool radioEditActive() {
+  return s_editActive;
+}
+
+double radioEditFreqPreview() {
+  return s_freqOpts[s_editFreqIdx];
+}
+
+double radioEditBwPreview() {
+  return s_bandwidthOpts[s_editBwIdx];
+}
+
+int32_t radioEditSfPreview() {
+  return s_spreadOpts[s_editSfIdx];
+}
+
+int32_t radioEditCrPreview() {
+  return s_codingOpts[s_editCrIdx];
+}
+
+void reapplyRadioConfig() {
+  double baseFreq = s_freqOpts[s_freqSelected];
+  double freqOffset = s_curFreqOffset / 1000000.0;
+
+  s_radio.standby();
+  s_radio.setFrequency(baseFreq + freqOffset);
+  s_radio.setBandwidth(s_bandwidthOpts[s_bandwidthSelected]);
+  s_radio.setSpreadingFactor(s_spreadOpts[s_spreadSelected]);
+  s_radio.setCodingRate(s_codingOpts[s_codingSelected]);
+  s_radio.startReceive();
 }

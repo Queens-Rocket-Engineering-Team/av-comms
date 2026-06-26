@@ -5,7 +5,7 @@
 
 inline constexpr double kEarthRadiusFeet = 20925524.9;
 
-inline const char kFirmwareVersion[] = "Jun.11.2025, V1.1.0C";
+inline const char kFirmwareVersion[] = "Jun.21.2026, V2.0.0C";
 
 // Pure constants => constexpr
 inline constexpr uint8_t  kNumRgbLeds   = 5;
@@ -18,8 +18,8 @@ inline constexpr uint32_t kI2cSpeed      = 100000;  // 100kHz
 
 // Strings: use inline constexpr char[]
 // Launch-control network credentials: set before flight; intentionally empty in VCS.
-inline constexpr const char kSsid[]     = "";
-inline constexpr const char kPassword[] = "";
+inline constexpr const char kSsid[] = "propnet";
+inline constexpr const char kPassword[] = "propteambestteam";
 
 inline constexpr double   kBattVdiv = 3.003579098067;
 inline constexpr uint16_t kSensorSamplePeriod = 250;
@@ -29,14 +29,12 @@ inline constexpr uint16_t kIndRfFlashTime = 130;     // ms
 inline constexpr uint16_t kIndBatteryFlashGap = 750; // ms
 
 inline constexpr uint16_t kRfmConnectedTimeout = 2000; // ms
-inline constexpr uint8_t  kRfmPacketSize = 10;
 
 inline constexpr uint32_t kLocalGpsLogRate = 1000;
 inline constexpr uint32_t kAltCoreStacksSize = 10000;
 inline constexpr uint16_t kEpdUpdateInt = 800;
 
 // Named thresholds/status constants
-inline constexpr int      kButtonThreshold = 40;
 inline constexpr uint16_t kBattVoltLow = 3500;
 inline constexpr uint16_t kBattVoltMedium = 3700;
 inline constexpr uint16_t kBattVoltHigh = 3900;
