@@ -155,20 +155,8 @@ void nodeUpdate(uint32_t nowMs) {
 }
 
 void nodeServiceCanTx(uint32_t nowMs, AimNetwork& aim) {
-#ifdef AIM_COMMS_TIME_MASTER
-  static aim::Job s_timeSyncJob{1000U, 0U};
-  if (s_timeSyncJob.due(nowMs)) {
-    aim::Msg m = {};
-    m.cls = aim::Class::Time;
-    m.subject = aim::subject::TimeSync;
-    if (!aim.send(m)) {
-      LOG_ERROR("TimeSync TX failed");
-    }
-  }
-#else
   (void)nowMs;
   (void)aim;
-#endif
 }
 
 void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {

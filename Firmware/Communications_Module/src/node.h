@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <cstdint>
 
-#include <aim_can_driver.h>
+#include <aim_stm32_can_core.h>
 #include <aim_network.h>
 #include <aim_safety.h>
 
