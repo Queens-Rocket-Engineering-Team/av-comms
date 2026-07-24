@@ -11,16 +11,25 @@ extern "C" {
 #include <WiFi.h>
 #include <esp_netif.h>
 
+// QLCP CONFIGURATION CONTRACT (GREG Ground Station Interface)
+// -------------------------------------------------------------
+// NOTE FOR QLCP / GREG INTEGRATION:
+// 1. "Vel" (velocity) has been removed from AIM v0.7.0 network contracts.
+// 2. Sensor ID 3 is now Acceleration (G).
+// 3. Sensor ID 4 is Chamber Pressure Pt204 (PSI).
+// 4. Sensor ID 5 is Satellite count (Sats).
+// When updating GREG JSON schema definitions, update "rocket_position" / "rocket_sensors" accordingly.
 constexpr char kBoardQlcpConfigJson[] = R"json({
   "device_name": "GREG",
   "device_type": "Sensor Monitor",
   "sensor_info": {
     "rocket_position": {
-      "Lat":  { "unit": "deg" },
-      "Lon":  { "unit": "deg" },
-      "Alt":  { "unit": "m" },
-      "Vel":  { "unit": "m/s" },
-      "Sats": { "unit": "" }
+      "Lat":     { "unit": "deg" },
+      "Lon":     { "unit": "deg" },
+      "Alt":     { "unit": "m" },
+      "Accel":   { "unit": "G" },
+      "Chamber": { "unit": "PSI" },
+      "Sats":    { "unit": "" }
     },
     "rocket_nodes": {
       "UCM": { "unit": "ms" },
@@ -103,7 +112,7 @@ static void sendTelemetry() {
   qlcp_sensor_data readings[kSensorCount] = {};
   uint32_t nowMs = millis();
 
-  // Position (sensor_id 0-4)
+  // Rocket Telemetry (sensor_id 0-5)
   readings[0].sensor_id = 0;
   readings[0].unit = QLCP_UNIT_UNITLESS;
   readings[0].value = static_cast<float>(getRocketLatDeg());
@@ -124,14 +133,18 @@ static void sendTelemetry() {
   readings[4].unit = QLCP_UNIT_PSI;
   readings[4].value = getRocketPressurePsi();
 
-  // Node liveness (sensor_id 4-8): 1.0=alive, 0.0=dead, -1.0=no link
+  readings[5].sensor_id = 5;
+  readings[5].unit = QLCP_UNIT_UNITLESS;
+  readings[5].value = static_cast<float>(getRocketGPSSats());
+
+  // Node liveness (sensor_id 6-10): 1.0=alive, 0.0=dead, -1.0=no link
   const uint8_t mask = getRocketLivenessMask();
   const bool loraLinkAlive = getRfmLastRFReceived() > 0 &&
                              (nowMs - getRfmLastRFReceived() < lora::kNodeAliveTimeoutMs);
   for (uint8_t i = 0; i < lora::kTrackedNodeCount; i++) {
-    readings[5 + i].sensor_id = 5 + i;
-    readings[5 + i].unit = QLCP_UNIT_UNITLESS;
-    readings[5 + i].value = getRfmLastRFReceived() == 0
+    readings[6 + i].sensor_id = 6 + i;
+    readings[6 + i].unit = QLCP_UNIT_UNITLESS;
+    readings[6 + i].value = getRfmLastRFReceived() == 0
         ? -1.0f
         : (loraLinkAlive && lora::LivenessTracker::isNodeAlive(mask, i) ? 1.0f : 0.0f);
   }
