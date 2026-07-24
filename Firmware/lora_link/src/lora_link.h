@@ -41,9 +41,9 @@ struct SlowFrame {
   uint8_t  gps_sats   : 4;
   uint8_t  gps_fix    : 1;
   uint8_t  vcc_raw    : 6;
-  uint8_t  fet_status : 4;
+  uint8_t  fet_status : 6;
   uint8_t  liveness   : 5;
-  uint8_t  reserved   : 4;
+  uint8_t  reserved   : 2;
 
   double getLatitudeDeg()  const { return static_cast<double>(gps_lat) / 1.0e7; }
   double getLongitudeDeg() const { return static_cast<double>(gps_lon) / 1.0e7; }
@@ -65,7 +65,7 @@ struct SlowFrame {
   }
 
   void setSolenoidState(uint8_t channel, bool energized) {
-    if (channel < 4) {
+    if (channel < 6) {
       if (energized) {
         fet_status |= (1U << channel);
       } else {

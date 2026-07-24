@@ -151,9 +151,14 @@ void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
       s_snapshot.slow.setSolenoidState(1, m.b[0] == 1U);
     } else if (m.subject == aim::subject::Av204) {
       s_snapshot.slow.setSolenoidState(2, m.b[0] == 1U);
-    } else {
+    } else if (m.subject == aim::subject::PwrPtUcm) {
       s_snapshot.slow.setSolenoidState(3, m.b[0] == 1U);
+    } else if (m.subject == aim::subject::PwrSolLcm) {
+      s_snapshot.slow.setSolenoidState(4, m.b[0] == 1U);
+    } else if (m.subject == aim::subject::PwrPtLcm) {
+      s_snapshot.slow.setSolenoidState(5, m.b[0] == 1U);
     }
+
   } else if (m.cls == aim::Class::Sensor) {
     if (m.subject == aim::subject::Altitude) {
       s_snapshot.fast.setAltitudeFromWire(m.sensorValue());
