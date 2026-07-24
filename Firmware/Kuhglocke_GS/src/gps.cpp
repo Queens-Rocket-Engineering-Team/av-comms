@@ -64,24 +64,6 @@ void handleGPS() {
   }
 }
 
-void calculateRocketVelocity() {
-  static double previousAltitudeM = 0;
-  static uint32_t lastTime = 0;
-
-  if (isRfmLastPacketValid() && millis() - getRfmLastRFReceived() < kRfmConnectedTimeout) {
-    uint32_t currentTime = millis();
-    double currentAltitudeM = getRocketAltitudeMeters();
-
-    if (lastTime > 0 && previousAltitudeM > 0) {
-      double timeDiff = (currentTime - lastTime) / 1000.0;  // seconds
-      double altDiff = currentAltitudeM - previousAltitudeM; // meters
-      setRocketVelocity(altDiff / timeDiff);                 // m/s
-    }
-
-    previousAltitudeM = currentAltitudeM;
-    lastTime = currentTime;
-  }
-}
 
 uint32_t getGPSAge() {
   return s_gps.location.age();

@@ -29,27 +29,19 @@ int32_t getRocketGPSLat();
 int32_t getRocketGPSLon();
 uint8_t getRocketGPSSats();
 uint8_t getRocketStatus();
-double getRocketVelocity();
 
 // Engineering-unit accessors (catalog wire scaling undone here)
 double getRocketLatDeg();
 double getRocketLonDeg();
 double getRocketAltitudeMeters();
-
-void setRocketVelocity(double vel);
+float  getRocketAccelG();
+float  getRocketPressurePsi();
 
 int32_t getCurFreqOffset();
 void changeFreqOffset(int32_t amount);
 void setRadioConfig(const String& name, uint16_t value);
 
-// Per-node liveness (runtime state, node list from lora_link)
-struct NodeStatus {
-  const char* name;
-  uint32_t lastHeardMs;
-  bool everHeard;
-};
-
-const NodeStatus* getNodeStatusTable();
+uint8_t getRocketLivenessMask();
 
 // Radio parameter editing (called by menu system)
 void radioEditBegin();

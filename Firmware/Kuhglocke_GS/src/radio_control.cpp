@@ -8,20 +8,20 @@
 #include <lora_link.h>
 
 // Static state variables
-static double s_freqOpts[] = {902.0, 905.4, 928.0};
+static double s_freqOpts[] = {902.0, 904.5, 928.0};
 static uint8_t s_freqSelected = 1;
 
 static constexpr uint8_t s_numBandwidthOpts = 10;
 static double s_bandwidthOpts[s_numBandwidthOpts] = {7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500};
-static uint8_t s_bandwidthSelected = 6;
+static uint8_t s_bandwidthSelected = 8; // 250 kHz
 
 static constexpr uint8_t s_numSpreadOpts = 6;
 static int32_t s_spreadOpts[s_numSpreadOpts] = {7, 8, 9, 10, 11, 12};
-static uint8_t s_spreadSelected = 3;
+static uint8_t s_spreadSelected = 0; // SF7
 
 static constexpr uint8_t s_numCodingOpts = 4;
 static int32_t s_codingOpts[s_numCodingOpts] = {5, 6, 7, 8};
-static uint8_t s_codingSelected = 1;
+static uint8_t s_codingSelected = 0; // CR 4/5 (5)
 
 static volatile uint32_t s_rfmLastRFReceived = 0;
 static volatile int16_t s_rfmLastRSSI = 0;
@@ -33,20 +33,14 @@ static volatile int32_t s_rocketGPSLat = 0;
 static volatile int32_t s_rocketGPSLon = 0;
 static volatile uint8_t s_rocketGPSSats = 0;
 static volatile int32_t s_rocketAltitude = 0;
+static volatile float   s_rocketAccelG = 0.0f;
+static volatile float   s_rocketPressurePsi = 0.0f;
 static volatile uint8_t s_rocketStatus = 0;
-static volatile double s_rocketVelocity = 0;
 
 static int32_t s_curFreqOffset = 0;
 static volatile bool s_rfmReceivedFlag = false;
 
-// Per-node liveness tracking — node list sourced from shared lora_link.
-static NodeStatus s_nodeStatus[lora::kTrackedNodeCount] = {
-  {lora::kTrackedNodes[0].name, 0, false},
-  {lora::kTrackedNodes[1].name, 0, false},
-  {lora::kTrackedNodes[2].name, 0, false},
-  {lora::kTrackedNodes[3].name, 0, false},
-  {lora::kTrackedNodes[4].name, 0, false},
-};
+static volatile uint8_t s_rocketLivenessMask = 0;
 
 static uint32_t s_packetCount = 0;
 
@@ -136,9 +130,11 @@ void rfmInit() {
 }
 
 void onRFMReceive() {
-  uint8_t rfmPayload[lora::kPacketSize];
+  uint8_t rfmPayload[32];
+  size_t len = s_radio.getPacketLength();
+  if (len > sizeof(rfmPayload)) len = sizeof(rfmPayload);
 
-  int state = s_radio.readData(rfmPayload, lora::kPacketSize);
+  int state = s_radio.readData(rfmPayload, len);
 
   // Restart receiver immediately
   s_radio.startReceive();
@@ -151,43 +147,26 @@ void onRFMReceive() {
     return;
   }
 
-  lora::Packet pkt = lora::decode(rfmPayload);
-
-  // Update per-node liveness
   uint32_t nowMs = millis();
-  for (uint8_t i = 0; i < lora::kTrackedNodeCount; i++) {
-    if (lora::kTrackedNodes[i].source == pkt.source) {
-      s_nodeStatus[i].lastHeardMs = nowMs;
-      s_nodeStatus[i].everHeard = true;
-      break;
-    }
-  }
-
   s_packetCount++;
 
-  // Derive rocket status (seenGPS=bit0, seenAltimeter=bit1, seenSensors=bit2)
-  uint8_t status = 0;
-  if (nowMs - s_nodeStatus[3].lastHeardMs < 5000) status |= 1; // GPS
-  if (nowMs - s_nodeStatus[2].lastHeardMs < 5000) status |= 2; // ALT
-  if ((nowMs - s_nodeStatus[0].lastHeardMs < 5000) ||
-      (nowMs - s_nodeStatus[1].lastHeardMs < 5000) ||
-      (nowMs - s_nodeStatus[4].lastHeardMs < 5000)) status |= 4; // UCM/LCM/PWR
-
-  // Protect writes to shared variables
   portENTER_CRITICAL(&s_rocketMux);
   s_rfmLastPacketValid = true;
-  s_rocketStatus = status;
 
-  if (pkt.cls == aim::Class::Sensor) {
-    if (pkt.subject == aim::subject::GpsLat) {
-      s_rocketGPSLat = pkt.value;
-    } else if (pkt.subject == aim::subject::GpsLon) {
-      s_rocketGPSLon = pkt.value;
-    } else if (pkt.subject == aim::subject::GpsNumSats) {
-      s_rocketGPSSats = pkt.value;
-    } else if (pkt.subject == aim::subject::Altitude) {
-      s_rocketAltitude = pkt.value;
-    }
+  if (len >= lora::kFastPacketSize && lora::isFastFrame(rfmPayload)) {
+    // Fast Frame (7 Bytes)
+    lora::FastFrame fastPkt = lora::decodeFast(rfmPayload);
+    s_rocketAltitude    = fastPkt.alt_m;
+    s_rocketAccelG      = fastPkt.getAccelG();
+    s_rocketPressurePsi = fastPkt.getPressurePsi();
+  } else if (len >= lora::kSlowPacketSize && lora::isSlowFrame(rfmPayload)) {
+    // Slow Frame (12 Bytes)
+    lora::SlowFrame slowPkt = lora::decodeSlow(rfmPayload);
+    s_rocketGPSLat = slowPkt.gps_lat;
+    s_rocketGPSLon = slowPkt.gps_lon;
+    s_rocketGPSSats = slowPkt.getSatellites();
+
+    s_rocketLivenessMask = slowPkt.liveness;
   }
 
   s_rfmLastRFReceived = nowMs;
@@ -198,8 +177,8 @@ void onRFMReceive() {
 
   triggerRFFlash();
 
-  char hexBuf[lora::kPacketSize * 2 + 1];
-  byteArrayToHexStr(rfmPayload, lora::kPacketSize, hexBuf, sizeof(hexBuf));
+  char hexBuf[65];
+  byteArrayToHexStr(rfmPayload, len, hexBuf, sizeof(hexBuf));
 
   char logBuf[100];
   snprintf(logBuf, sizeof(logBuf), "RocketPacket:%u,%d,%.1f,%d,%s",
@@ -211,12 +190,13 @@ void onRFMReceive() {
   writeToSDLog(logBuf);
 
   char logBuf2[100];
-  snprintf(logBuf2, sizeof(logBuf2), "RocketData:%u,%.6f,%.6f,%.2f,%.2f,%u",
+  snprintf(logBuf2, sizeof(logBuf2), "RocketData:%u,%.6f,%.6f,%.2f,%.2f,%.1f,%u",
            getRocketGPSSats(),
            getRocketLatDeg(),
            getRocketLonDeg(),
            getRocketAltitudeMeters(),
-           getRocketVelocity(),
+           static_cast<double>(getRocketAccelG()),
+           static_cast<double>(getRocketPressurePsi()),
            getRocketStatus());
   writeToSDLog(logBuf2);
 }
@@ -304,12 +284,6 @@ uint8_t getRocketStatus() {
   return val;
 }
 
-double getRocketVelocity() {
-  portENTER_CRITICAL(&s_rocketMux);
-  double val = s_rocketVelocity;
-  portEXIT_CRITICAL(&s_rocketMux);
-  return val;
-}
 
 // Catalog wire scaling (aim_catalog.h): GPS degrees x10^7, altitude meters x100.
 double getRocketLatDeg() {
@@ -330,14 +304,23 @@ double getRocketAltitudeMeters() {
   portENTER_CRITICAL(&s_rocketMux);
   int32_t val = s_rocketAltitude;
   portEXIT_CRITICAL(&s_rocketMux);
-  return val / 100.0;
+  return static_cast<double>(val);
 }
 
-void setRocketVelocity(double vel) {
+float getRocketAccelG() {
   portENTER_CRITICAL(&s_rocketMux);
-  s_rocketVelocity = vel;
+  float val = s_rocketAccelG;
   portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
+
+float getRocketPressurePsi() {
+  portENTER_CRITICAL(&s_rocketMux);
+  float val = s_rocketPressurePsi;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
+}
+
 // NOTE: Kept for future manual tuning / local menu support
 int32_t getCurFreqOffset() {
   return s_curFreqOffset;
@@ -373,8 +356,8 @@ uint32_t getRfmPacketCount() {
   return s_packetCount;
 }
 
-const NodeStatus* getNodeStatusTable() {
-  return s_nodeStatus;
+uint8_t getRocketLivenessMask() {
+  return s_rocketLivenessMask;
 }
 
 // --- Radio parameter editing (driven by menu buttons) ---

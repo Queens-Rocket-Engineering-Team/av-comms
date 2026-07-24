@@ -118,20 +118,22 @@ static void sendTelemetry() {
 
   readings[3].sensor_id = 3;
   readings[3].unit = QLCP_UNIT_UNITLESS;
-  readings[3].value = static_cast<float>(getRocketVelocity());
+  readings[3].value = getRocketAccelG();
 
   readings[4].sensor_id = 4;
-  readings[4].unit = QLCP_UNIT_UNITLESS;
-  readings[4].value = static_cast<float>(getRocketGPSSats());
+  readings[4].unit = QLCP_UNIT_PSI;
+  readings[4].value = getRocketPressurePsi();
 
-  // Node liveness (sensor_id 5-9): age in ms, -1 = never heard
-  const NodeStatus* nodes = getNodeStatusTable();
+  // Node liveness (sensor_id 4-8): 1.0=alive, 0.0=dead, -1.0=no link
+  const uint8_t mask = getRocketLivenessMask();
+  const bool loraLinkAlive = getRfmLastRFReceived() > 0 &&
+                             (nowMs - getRfmLastRFReceived() < lora::kNodeAliveTimeoutMs);
   for (uint8_t i = 0; i < lora::kTrackedNodeCount; i++) {
     readings[5 + i].sensor_id = 5 + i;
-    readings[5 + i].unit = QLCP_UNIT_MILLISECONDS;
-    readings[5 + i].value = nodes[i].everHeard
-        ? static_cast<float>(nowMs - nodes[i].lastHeardMs)
-        : -1.0f;
+    readings[5 + i].unit = QLCP_UNIT_UNITLESS;
+    readings[5 + i].value = getRfmLastRFReceived() == 0
+        ? -1.0f
+        : (loraLinkAlive && lora::LivenessTracker::isNodeAlive(mask, i) ? 1.0f : 0.0f);
   }
 
   // Link quality (sensor_id 10-14)

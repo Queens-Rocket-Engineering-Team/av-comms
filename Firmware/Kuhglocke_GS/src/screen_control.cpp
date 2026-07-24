@@ -50,10 +50,7 @@ static void drawTelemetry() {
   s_display.print(getRocketAltitudeMeters() * 3.28084, 0);
   s_display.print("ft");
 
-  s_display.setCursor(0, 64);
-  s_display.print("VEL ");
-  s_display.print(getRocketVelocity() * 3.28084f, 1);
-  s_display.print("ft/s");
+
 
   s_display.drawLine(0, 82, kDisplayW, 82, GxEPD_BLACK);
 
@@ -105,35 +102,36 @@ static void drawTelemetry() {
 static void drawNodeHealth() {
   drawTitleBar("NODES");
 
-  const NodeStatus* nodes = getNodeStatusTable();
-  uint32_t nowMs = millis();
+  const uint8_t mask = getRocketLivenessMask();
+  const uint32_t nowMs = millis();
+  const uint32_t linkAgeMs = nowMs - getRfmLastRFReceived();
+  const bool loraLinkAlive = getRfmLastRFReceived() > 0 && linkAgeMs < lora::kNodeAliveTimeoutMs;
 
   for (uint8_t i = 0; i < lora::kTrackedNodeCount; i++) {
     uint16_t rowY = 16 + i * 16;
-    bool lost = nodes[i].everHeard &&
-                (nowMs - nodes[i].lastHeardMs >= lora::kNodeAliveTimeoutMs);
+    const bool alive = loraLinkAlive && lora::LivenessTracker::isNodeAlive(mask, i);
+    const bool everHeard = getRfmLastRFReceived() > 0;
 
-    if (lost) {
+    if (everHeard && !alive) {
       s_display.fillRect(0, rowY, kDisplayW, 16, GxEPD_BLACK);
       s_display.setTextColor(GxEPD_WHITE);
     }
 
     s_display.setTextSize(2);
     s_display.setCursor(2, rowY);
-    s_display.print(nodes[i].name);
+    s_display.print(lora::sourceName(static_cast<aim::Source>(i + 1)));
 
-    if (!nodes[i].everHeard) {
+    if (!everHeard) {
       s_display.setCursor(60, rowY);
       s_display.print("---");
     } else {
-      uint32_t ageMs = nowMs - nodes[i].lastHeardMs;
       s_display.setCursor(60, rowY);
-      s_display.print(lost ? "LOST" : "OK");
+      s_display.print(alive ? "OK" : "LOST");
       s_display.setCursor(132, rowY);
-      if (ageMs < 10000U) {
-        s_display.print(ageMs / 1000.0, 1);
+      if (linkAgeMs < 10000U) {
+        s_display.print(linkAgeMs / 1000.0, 1);
       } else {
-        s_display.print(ageMs / 1000U);
+        s_display.print(linkAgeMs / 1000U);
       }
       s_display.print("s");
     }
