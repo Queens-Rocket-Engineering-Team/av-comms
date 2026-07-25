@@ -36,6 +36,7 @@ static volatile int32_t s_rocketAltitude = 0;
 static volatile float   s_rocketAccelG = 0.0f;
 static volatile float   s_rocketPressurePsi = 0.0f;
 static volatile uint8_t s_rocketStatus = 0;
+static volatile float   s_rocketBattVolts = 0.0f;
 
 static int32_t s_curFreqOffset = 0;
 static volatile bool s_rfmReceivedFlag = false;
@@ -165,6 +166,7 @@ void onRFMReceive() {
     s_rocketGPSLat = slowPkt.gps_lat;
     s_rocketGPSLon = slowPkt.gps_lon;
     s_rocketGPSSats = slowPkt.getSatellites();
+    s_rocketBattVolts = slowPkt.getBatteryVolts();
 
     s_rocketLivenessMask = slowPkt.liveness;
   }
@@ -273,6 +275,13 @@ int32_t getRocketGPSLon() {
 uint8_t getRocketGPSSats() {
   portENTER_CRITICAL(&s_rocketMux);
   uint8_t val = s_rocketGPSSats;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
+}
+
+float getRocketBatteryVolts() {
+  portENTER_CRITICAL(&s_rocketMux);
+  float val = s_rocketBattVolts;
   portEXIT_CRITICAL(&s_rocketMux);
   return val;
 }

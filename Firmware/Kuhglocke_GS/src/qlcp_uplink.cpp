@@ -10,46 +10,58 @@ extern "C" {
 }
 #include <WiFi.h>
 #include <esp_netif.h>
+#include <esp_timer.h>
 
 // QLCP CONFIGURATION CONTRACT (GREG Ground Station Interface)
 // -------------------------------------------------------------
-// NOTE FOR QLCP / GREG INTEGRATION:
-// 1. "Vel" (velocity) has been removed from AIM v0.7.0 network contracts.
-// 2. Sensor ID 3 is now Acceleration (G).
-// 3. Sensor ID 4 is Chamber Pressure Pt204 (PSI).
-// 4. Sensor ID 5 is Satellite count (Sats).
-// When updating GREG JSON schema definitions, update "rocket_position" / "rocket_sensors" accordingly.
+// Protocol v3 (ctl-qlcp-lib @ 13682f9). Two v3 rules drive this file:
+//
+// 1. sensor_id is the zero-based ordinal of each entry below, traversed group
+//    by group in serialized member order (spec 3.5). The kSen* bases in this
+//    file MUST track this JSON exactly — a mismatch silently relabels every
+//    reading after the first divergence, with no error anywhere.
+// 2. Units live here and ONLY here. v3 removed the per-reading unit byte from
+//    DATA packets, so the server takes units from this JSON. Every sensor needs
+//    a non-empty unit string — the server rejects the whole CONFIG and drops the
+//    connection on the first "" it finds, so genuinely dimensionless quantities
+//    get a descriptive word ("count", "state") rather than being left blank.
+//
+// GREG is sensor-only: it relays rocket telemetry and reports its own health,
+// but owns no controls, so there is no "controls" object. The rocket's FET
+// states arrive over LoRa but are deliberately not published — they are the
+// UCM/LCM's controls, not GREG's, and QLCP has no way to express relayed
+// control ownership.
 constexpr char kBoardQlcpConfigJson[] = R"json({
   "device_name": "GREG",
   "device_type": "Sensor Monitor",
-  "sensor_info": {
+  "sensors": {
     "rocket_position": {
       "Lat":     { "unit": "deg" },
       "Lon":     { "unit": "deg" },
       "Alt":     { "unit": "m" },
-      "Accel":   { "unit": "G" },
+      "Accel":   { "unit": "G-force" },
       "Chamber": { "unit": "PSI" },
-      "Sats":    { "unit": "" }
+      "Sats":    { "unit": "count" }
     },
     "rocket_nodes": {
-      "UCM": { "unit": "ms" },
-      "LCM": { "unit": "ms" },
-      "ALT": { "unit": "ms" },
-      "GPS": { "unit": "ms" },
-      "PWR": { "unit": "ms" }
+      "UCM": { "unit": "state" },
+      "LCM": { "unit": "state" },
+      "ALT": { "unit": "state" },
+      "GPS": { "unit": "state" },
+      "PWR": { "unit": "state" }
     },
     "rocket_link": {
       "RSSI":    { "unit": "dBm" },
       "SNR":     { "unit": "dB" },
       "FreqErr": { "unit": "Hz" },
-      "Packets": { "unit": "" },
+      "Packets": { "unit": "count" },
       "LinkAge": { "unit": "ms" }
     },
     "rocket_radio_config": {
       "Freq": { "unit": "MHz" },
       "BW":   { "unit": "kHz" },
-      "SF":   { "unit": "" },
-      "CR":   { "unit": "" }
+      "SF":   { "unit": "unitless" },
+      "CR":   { "unit": "unitless" }
     },
     "ground_station": {
       "BattV":      { "unit": "V" },
@@ -57,12 +69,26 @@ constexpr char kBoardQlcpConfigJson[] = R"json({
       "AmbTemp":    { "unit": "C" }
     },
     "voltage_sense": {
-      "RocketBatt": {
-        "unit": "V"
-      }
+      "RocketBatt": { "unit": "V" }
     }
   }
 })json";
+
+// sensor_id bases, one per group above, in JSON member order.
+constexpr uint8_t kSenPositionBase = 0U;   // Lat, Lon, Alt, Accel, Chamber, Sats
+constexpr uint8_t kSenNodesBase    = 6U;   // UCM, LCM, ALT, GPS, PWR
+constexpr uint8_t kSenLinkBase     = 11U;  // RSSI, SNR, FreqErr, Packets, LinkAge
+constexpr uint8_t kSenRadioBase    = 16U;  // Freq, BW, SF, CR
+constexpr uint8_t kSenGsBase       = 20U;  // BattV, SysCurrent, AmbTemp
+constexpr uint8_t kSenRocketBatt   = 23U;  // RocketBatt
+constexpr uint8_t kSensorCount     = 24U;
+
+static_assert(kSenNodesBase == kSenPositionBase + 6U, "rocket_position holds 6 sensors");
+static_assert(kSenLinkBase == kSenNodesBase + lora::kTrackedNodeCount, "rocket_nodes holds one sensor per tracked node");
+static_assert(kSenRadioBase == kSenLinkBase + 5U, "rocket_link holds 5 sensors");
+static_assert(kSenGsBase == kSenRadioBase + 4U, "rocket_radio_config holds 4 sensors");
+static_assert(kSenRocketBatt == kSenGsBase + 3U, "ground_station holds 3 sensors");
+static_assert(kSensorCount == kSenRocketBatt + 1U, "voltage_sense holds 1 sensor");
 
 enum QlcpNetState : uint8_t {
   QLCP_NET_IDLE = 0U,
@@ -76,22 +102,41 @@ static QlcpNetState s_netState = QLCP_NET_IDLE;
 static uint32_t s_stateEnteredMs = 0U;
 static uint32_t s_lastRxMs = 0U;
 static uint32_t s_backoffMs = 1000U;
-static bool s_configSent = false;
 static net_link_t s_netLink = {};
 
-static uint16_t s_sequence = 0U;
-static uint32_t s_tsOffset = 0U;
+// CONFIG is the first packet on every new TCP connection (spec 11), and its ACK
+// is what gates the first timesync cycle (spec 7.7.4.1), so the sequence it was
+// sent under has to be remembered to match that ACK.
+static bool s_configSent = false;
+static bool s_configAcked = false;
+static uint8_t s_configSeq = 0U;
+
+static uint8_t s_sequence = 0U;          // wrapping 8-bit, per endpoint (spec 3.3)
+static int64_t s_tsOffsetUs = 0;         // deviceTime_us - serverTime_us (spec 7.7.3)
+static uint32_t s_lastTimesyncMs = 0U;
 static uint16_t s_streamFrequencyHz = 0U;
 static uint32_t s_lastStreamTxMs = 0U;
 
 constexpr uint32_t kNetTcpConnectTimeoutMs = 5000U;
-constexpr uint32_t kNetRxIdleTimeoutMs    = 15000U;
-constexpr uint32_t kNetBackoffMinMs       = 1000U;
-constexpr uint32_t kNetBackoffMaxMs       = 8000U;
+constexpr uint32_t kNetRxIdleTimeoutMs     = 15000U;
+constexpr uint32_t kNetBackoffMinMs        = 1000U;
+constexpr uint32_t kNetBackoffMaxMs        = 8000U;
 
+// Spec 7.7.4.2 requires a resync at least every 60 s; 55 s keeps us inside that
+// ceiling even with main-loop jitter, at a cost of one 17-byte packet.
+constexpr uint32_t kTimesyncIntervalMs = 55000U;
+
+// Spec 7.3: when the requested rate exceeds our capability, stream at the
+// highest supported rate that does not exceed it. The main loop also drives the
+// e-paper display and the LoRa radio, and the rocket telemetry underneath
+// arrives at a few Hz at best, so faster only resends stale values.
+constexpr uint16_t kMaxStreamHz = 20U;
+
+// Before the first successful timesync the offset is zero, so this emits raw
+// device time — which is exactly what spec 3.4.3 asks for.
 static void fillHeader(qlcp_header& header) {
-  header.sequence = static_cast<uint8_t>(s_sequence++);
-  header.timestamp = s_tsOffset + millis();
+  header.sequence = s_sequence++;
+  header.timestamp_us = static_cast<uint64_t>(esp_timer_get_time() - s_tsOffsetUs);
 }
 
 static void netTransition(QlcpNetState next, uint32_t nowMs) {
@@ -104,101 +149,74 @@ static void netFail(uint32_t nowMs) {
   net_link_close_all(&s_netLink);
   s_streamFrequencyHz = 0U;
   s_configSent = false;
+  s_configAcked = false;
   netTransition(QLCP_NET_BACKOFF, nowMs);
 }
 
+// One reading from every sensor, in the id order fixed by the CONFIG JSON.
+// Used both for the periodic stream and for GET_SINGLE (spec 10.4).
 static void sendTelemetry() {
-  static constexpr uint8_t kSensorCount = 22U;
   qlcp_sensor_data readings[kSensorCount] = {};
-  uint32_t nowMs = millis();
+  const uint32_t nowMs = millis();
 
-  // Rocket Telemetry (sensor_id 0-5)
-  readings[0].sensor_id = 0;
-  readings[0].unit = QLCP_UNIT_UNITLESS;
-  readings[0].value = static_cast<float>(getRocketLatDeg());
+  // rocket_position
+  readings[kSenPositionBase + 0U].id = kSenPositionBase + 0U;
+  readings[kSenPositionBase + 0U].value = static_cast<float>(getRocketLatDeg());
+  readings[kSenPositionBase + 1U].id = kSenPositionBase + 1U;
+  readings[kSenPositionBase + 1U].value = static_cast<float>(getRocketLonDeg());
+  readings[kSenPositionBase + 2U].id = kSenPositionBase + 2U;
+  readings[kSenPositionBase + 2U].value = static_cast<float>(getRocketAltitudeMeters());
+  readings[kSenPositionBase + 3U].id = kSenPositionBase + 3U;
+  readings[kSenPositionBase + 3U].value = getRocketAccelG();
+  readings[kSenPositionBase + 4U].id = kSenPositionBase + 4U;
+  readings[kSenPositionBase + 4U].value = getRocketPressurePsi();
+  readings[kSenPositionBase + 5U].id = kSenPositionBase + 5U;
+  readings[kSenPositionBase + 5U].value = static_cast<float>(getRocketGPSSats());
 
-  readings[1].sensor_id = 1;
-  readings[1].unit = QLCP_UNIT_UNITLESS;
-  readings[1].value = static_cast<float>(getRocketLonDeg());
-
-  readings[2].sensor_id = 2;
-  readings[2].unit = QLCP_UNIT_UNITLESS;
-  readings[2].value = static_cast<float>(getRocketAltitudeMeters());
-
-  readings[3].sensor_id = 3;
-  readings[3].unit = QLCP_UNIT_UNITLESS;
-  readings[3].value = getRocketAccelG();
-
-  readings[4].sensor_id = 4;
-  readings[4].unit = QLCP_UNIT_PSI;
-  readings[4].value = getRocketPressurePsi();
-
-  readings[5].sensor_id = 5;
-  readings[5].unit = QLCP_UNIT_UNITLESS;
-  readings[5].value = static_cast<float>(getRocketGPSSats());
-
-  // Node liveness (sensor_id 6-10): 1.0=alive, 0.0=dead, -1.0=no link
+  // rocket_nodes: 1.0 = alive, 0.0 = dead, -1.0 = no link established yet
   const uint8_t mask = getRocketLivenessMask();
-  const bool loraLinkAlive = getRfmLastRFReceived() > 0 &&
-                             (nowMs - getRfmLastRFReceived() < lora::kNodeAliveTimeoutMs);
-  for (uint8_t i = 0; i < lora::kTrackedNodeCount; i++) {
-    readings[6 + i].sensor_id = 6 + i;
-    readings[6 + i].unit = QLCP_UNIT_UNITLESS;
-    readings[6 + i].value = getRfmLastRFReceived() == 0
+  const uint32_t lastRfMs = getRfmLastRFReceived();
+  const bool loraLinkAlive = (lastRfMs > 0U) && ((nowMs - lastRfMs) < lora::kNodeAliveTimeoutMs);
+  for (uint8_t i = 0U; i < lora::kTrackedNodeCount; i++) {
+    readings[kSenNodesBase + i].id = kSenNodesBase + i;
+    readings[kSenNodesBase + i].value = (lastRfMs == 0U)
         ? -1.0f
-        : (loraLinkAlive && lora::LivenessTracker::isNodeAlive(mask, i) ? 1.0f : 0.0f);
+        : ((loraLinkAlive && lora::LivenessTracker::isNodeAlive(mask, i)) ? 1.0f : 0.0f);
   }
 
-  // Link quality (sensor_id 10-14)
-  readings[10].sensor_id = 10;
-  readings[10].unit = QLCP_UNIT_UNITLESS;
-  readings[10].value = static_cast<float>(getRfmLastRSSI());
+  // rocket_link
+  readings[kSenLinkBase + 0U].id = kSenLinkBase + 0U;
+  readings[kSenLinkBase + 0U].value = static_cast<float>(getRfmLastRSSI());
+  readings[kSenLinkBase + 1U].id = kSenLinkBase + 1U;
+  readings[kSenLinkBase + 1U].value = getRfmLastSNR();
+  readings[kSenLinkBase + 2U].id = kSenLinkBase + 2U;
+  readings[kSenLinkBase + 2U].value = static_cast<float>(getRfmLastFreqErr());
+  readings[kSenLinkBase + 3U].id = kSenLinkBase + 3U;
+  readings[kSenLinkBase + 3U].value = static_cast<float>(getRfmPacketCount());
+  readings[kSenLinkBase + 4U].id = kSenLinkBase + 4U;
+  readings[kSenLinkBase + 4U].value = static_cast<float>(nowMs - lastRfMs);
 
-  readings[11].sensor_id = 11;
-  readings[11].unit = QLCP_UNIT_UNITLESS;
-  readings[11].value = static_cast<float>(getRfmLastSNR());
+  // rocket_radio_config
+  readings[kSenRadioBase + 0U].id = kSenRadioBase + 0U;
+  readings[kSenRadioBase + 0U].value = static_cast<float>(getRadioFreq());
+  readings[kSenRadioBase + 1U].id = kSenRadioBase + 1U;
+  readings[kSenRadioBase + 1U].value = static_cast<float>(getRadioBandwidth());
+  readings[kSenRadioBase + 2U].id = kSenRadioBase + 2U;
+  readings[kSenRadioBase + 2U].value = static_cast<float>(getRadioSF());
+  readings[kSenRadioBase + 3U].id = kSenRadioBase + 3U;
+  readings[kSenRadioBase + 3U].value = static_cast<float>(getRadioCR());
 
-  readings[12].sensor_id = 12;
-  readings[12].unit = QLCP_UNIT_HERTZ;
-  readings[12].value = static_cast<float>(getRfmLastFreqErr());
+  // ground_station
+  readings[kSenGsBase + 0U].id = kSenGsBase + 0U;
+  readings[kSenGsBase + 0U].value = getBatteryVoltage() / 1000.0f;
+  readings[kSenGsBase + 1U].id = kSenGsBase + 1U;
+  readings[kSenGsBase + 1U].value = getSystemCurrent() / 1000.0f;
+  readings[kSenGsBase + 2U].id = kSenGsBase + 2U;
+  readings[kSenGsBase + 2U].value = getAmbTemperature() / 100.0f;
 
-  readings[13].sensor_id = 13;
-  readings[13].unit = QLCP_UNIT_UNITLESS;
-  readings[13].value = static_cast<float>(getRfmPacketCount());
-
-  readings[14].sensor_id = 14;
-  readings[14].unit = QLCP_UNIT_MILLISECONDS;
-  readings[14].value = static_cast<float>(nowMs - getRfmLastRFReceived());
-
-  // Radio config (sensor_id 15-18)
-  readings[15].sensor_id = 15;
-  readings[15].unit = QLCP_UNIT_UNITLESS;
-  readings[15].value = static_cast<float>(getRadioFreq());
-
-  readings[16].sensor_id = 16;
-  readings[16].unit = QLCP_UNIT_UNITLESS;
-  readings[16].value = static_cast<float>(getRadioBandwidth());
-
-  readings[17].sensor_id = 17;
-  readings[17].unit = QLCP_UNIT_UNITLESS;
-  readings[17].value = static_cast<float>(getRadioSF());
-
-  readings[18].sensor_id = 18;
-  readings[18].unit = QLCP_UNIT_UNITLESS;
-  readings[18].value = static_cast<float>(getRadioCR());
-
-  // GS health (sensor_id 19-21)
-  readings[19].sensor_id = 19;
-  readings[19].unit = QLCP_UNIT_VOLTS;
-  readings[19].value = getBatteryVoltage() / 1000.0f;
-
-  readings[20].sensor_id = 20;
-  readings[20].unit = QLCP_UNIT_AMPS;
-  readings[20].value = getSystemCurrent() / 1000.0f;
-
-  readings[21].sensor_id = 21;
-  readings[21].unit = QLCP_UNIT_CELSIUS;
-  readings[21].value = getAmbTemperature() / 100.0f;
+  // voltage_sense
+  readings[kSenRocketBatt].id = kSenRocketBatt;
+  readings[kSenRocketBatt].value = getRocketBatteryVolts();
 
   qlcp_data_packet pkt = {};
   fillHeader(pkt.header);
@@ -212,7 +230,7 @@ static void qlcpTelemetryService(uint32_t nowMs) {
   if ((s_netState != QLCP_NET_CONNECTED) || (s_streamFrequencyHz == 0U)) {
     return;
   }
-  const uint32_t periodMs = 1000U / s_streamFrequencyHz;
+  const uint32_t periodMs = 1000U / s_streamFrequencyHz; // non-zero: rate is clamped to kMaxStreamHz
   if ((nowMs - s_lastStreamTxMs) < periodMs) {
     return;
   }
@@ -221,7 +239,7 @@ static void qlcpTelemetryService(uint32_t nowMs) {
   sendTelemetry();
 }
 
-static void sendAck(uint8_t ackType, uint16_t ackSeq) {
+static void sendAck(uint8_t ackType, uint8_t ackSeq) {
   qlcp_server_payload out = {};
   out.packet_type = QLCP_PT_ACK;
   fillHeader(out.payload_data.ack.header);
@@ -232,7 +250,7 @@ static void sendAck(uint8_t ackType, uint16_t ackSeq) {
   }
 }
 
-static void sendNack(uint8_t nackType, uint16_t nackSeq, uint8_t errCode) {
+static void sendNack(uint8_t nackType, uint8_t nackSeq, uint8_t errCode) {
   qlcp_server_payload out = {};
   out.packet_type = QLCP_PT_NACK;
   fillHeader(out.payload_data.nack.header);
@@ -244,62 +262,133 @@ static void sendNack(uint8_t nackType, uint16_t nackSeq, uint8_t errCode) {
   }
 }
 
+// qlcp_encode_status() rejects a NULL control_data even when control_count is
+// zero, so a device with no controls has to hand it a dummy the encoder will
+// never read. Passing nullptr instead makes every STATUS fail to encode and be
+// dropped silently — it compiles and links fine, and only shows up as missing
+// responses against a live server.
+static const qlcp_control_data kNoControls[1] = {};
+
+// GREG owns no controls, so every STATUS carries count = 0. It still has to be
+// sent: spec 10.1 makes STATUS the required response to CONTROL and
+// STATUS_REQUEST, and spec 10.3 to ESTOP.
+static void sendStatus(uint8_t ackType, uint8_t ackSeq) {
+  qlcp_server_payload out = {};
+  out.packet_type = QLCP_PT_STATUS;
+  fillHeader(out.payload_data.status.header);
+  out.payload_data.status.ack_packet_type = ackType;
+  out.payload_data.status.ack_sequence = ackSeq;
+  out.payload_data.status.control_data = kNoControls;
+  out.payload_data.status.control_count = 0U;
+  if (tcp_tx_payload(&s_netLink, &out) != 0) {
+    Serial.println("[WARN] STATUS dropped - TX busy");
+  }
+}
+
+// Device-initiated (spec 7.7.1). The server echoes our send time back as
+// t1_echo_us alongside its own receipt clock in TIMESYNC_RESP.
+static void sendTimesyncReq() {
+  qlcp_server_payload out = {};
+  out.packet_type = QLCP_PT_TIMESYNC_REQ;
+  out.payload_data.header_only.packet_type = QLCP_PT_TIMESYNC_REQ;
+  fillHeader(out.payload_data.header_only.header);
+  if (tcp_tx_payload(&s_netLink, &out) != 0) {
+    Serial.println("[WARN] TIMESYNC_REQ dropped - TX busy");
+  }
+}
+
 static void qlcpHandlePacket(const qlcp_client_payload& in) {
   switch (in.packet_type) {
-    case QLCP_PT_TIMESYNC: {
-      const uint32_t serverTime = in.payload_data.header_only.timestamp;
-      s_tsOffset = serverTime - millis();
-      Serial.printf("QLCP timesync completed. Offset: %u ms\n", s_tsOffset);
-      sendAck(QLCP_PT_TIMESYNC, in.payload_data.header_only.sequence);
+    case QLCP_PT_HEARTBEAT: {
+      sendAck(QLCP_PT_HEARTBEAT, in.payload_data.header_only.header.sequence);
       break;
     }
-    case QLCP_PT_HEARTBEAT: {
-      sendAck(QLCP_PT_HEARTBEAT, in.payload_data.header_only.sequence);
+    case QLCP_PT_TIMESYNC_RESP: {
+      // Four-timestamp exchange, spec 7.7.3. T4 is sampled first and the
+      // differences are signed — the offset is negative whenever the device
+      // clock trails the server's.
+      const int64_t t4 = esp_timer_get_time();
+      const int64_t t1 = static_cast<int64_t>(in.payload_data.timesync_resp.t1_echo_us);       // our send time, echoed
+      const int64_t t2 = static_cast<int64_t>(in.payload_data.timesync_resp.t2_us);            // server receipt
+      const int64_t t3 = static_cast<int64_t>(in.payload_data.timesync_resp.header.timestamp_us); // server send
+      s_tsOffsetUs = ((t1 - t2) + (t4 - t3)) / 2;
+      Serial.printf("QLCP timesync completed. Offset: %lld us\n", static_cast<long long>(s_tsOffsetUs));
+      sendAck(QLCP_PT_TIMESYNC_RESP, in.payload_data.timesync_resp.header.sequence);
       break;
     }
     case QLCP_PT_STREAM_START: {
+      const uint16_t seq = in.payload_data.stream_start.header.sequence;
       const uint16_t freq = in.payload_data.stream_start.stream_frequency;
-      if (freq > 0U) {
-        s_streamFrequencyHz = freq;
-        s_lastStreamTxMs = millis();
-        Serial.printf("QLCP Stream Start at %u Hz\n", freq);
+      if (freq == 0U) {
+        // Spec 7.3 defines the valid range as 1-65535; 0 is not "stop".
+        Serial.println("[WARN] STREAM_START with frequency 0 - rejected");
+        sendNack(QLCP_PT_STREAM_START, seq, QLCP_ERR_INVALID_PARAM);
+        break;
       }
-      sendAck(QLCP_PT_STREAM_START, in.payload_data.header_only.sequence);
+      s_streamFrequencyHz = (freq > kMaxStreamHz) ? kMaxStreamHz : freq;
+      s_lastStreamTxMs = millis();
+      if (s_streamFrequencyHz != freq) {
+        Serial.printf("QLCP Stream Start at %u Hz (clamped from %u Hz)\n", s_streamFrequencyHz, freq);
+      } else {
+        Serial.printf("QLCP Stream Start at %u Hz\n", s_streamFrequencyHz);
+      }
+      sendAck(QLCP_PT_STREAM_START, seq);
       break;
     }
     case QLCP_PT_STREAM_STOP: {
       s_streamFrequencyHz = 0U;
       Serial.println("QLCP Stream Stop");
-      sendAck(QLCP_PT_STREAM_STOP, in.payload_data.header_only.sequence);
+      sendAck(QLCP_PT_STREAM_STOP, in.payload_data.header_only.header.sequence);
       break;
     }
     case QLCP_PT_GET_SINGLE: {
+      // Spec 10.4: one reading from every sensor, in a single DATA packet.
+      // DATA is the required response here — no ACK (spec 10.1).
       sendTelemetry();
       break;
     }
     case QLCP_PT_ESTOP: {
-      Serial.println("[WARN] ESTOP received on Ground Station!");
-      sendAck(QLCP_PT_ESTOP, in.payload_data.header_only.sequence);
+      // GREG drives nothing, so "all controls to default" is vacuous — but the
+      // STATUS response is still mandatory (spec 10.3).
+      Serial.println("[WARN] ESTOP received on Ground Station - no controls to safe");
+      sendStatus(QLCP_PT_ESTOP, in.payload_data.header_only.header.sequence);
       break;
     }
     case QLCP_PT_STATUS_REQUEST: {
-      qlcp_server_payload out = {};
-      out.packet_type = QLCP_PT_STATUS;
-      fillHeader(out.payload_data.status.header);
-      out.payload_data.status.control_data = nullptr;
-      out.payload_data.status.control_count = 0;
-      out.payload_data.status.device_status = QLCP_DS_ACTIVE;
-      if (tcp_tx_payload(&s_netLink, &out) != 0) {
-        Serial.println("[WARN] STATUS dropped - TX busy");
-      }
+      sendStatus(QLCP_PT_STATUS_REQUEST, in.payload_data.header_only.header.sequence);
       break;
     }
     case QLCP_PT_CONTROL: {
-      sendNack(QLCP_PT_CONTROL, in.payload_data.header_only.sequence, QLCP_ERR_UNKNOWN_TYPE);
+      // GREG declares no controls, so every control_id is out of range.
+      Serial.printf("[WARN] CONTROL for id %u - ground station has no controls\n",
+                    in.payload_data.control.control_data.id);
+      sendNack(QLCP_PT_CONTROL, in.payload_data.control.header.sequence, QLCP_ERR_INVALID_ID);
+      break;
+    }
+    case QLCP_PT_ACK: {
+      // Spec 7.7.4.1: the first timesync cycle starts on the CONFIG ACK. Until
+      // the server has our config there is nothing for it to time-align.
+      const uint8_t ackType = in.payload_data.ack.ack_packet_type;
+      const uint8_t ackSeq = in.payload_data.ack.ack_sequence;
+      if (!s_configAcked && (ackType == QLCP_PT_CONFIG) && (ackSeq == s_configSeq)) {
+        s_configAcked = true;
+        Serial.println("QLCP CONFIG acknowledged - starting timesync");
+        sendTimesyncReq();
+        s_lastTimesyncMs = millis();
+      }
+      break;
+    }
+    case QLCP_PT_NACK: {
+      Serial.printf("[WARN] Server NACK: type %u seq %u err %u\n",
+                    in.payload_data.nack.nack_packet_type,
+                    in.payload_data.nack.nack_sequence,
+                    in.payload_data.nack.nack_error_code);
       break;
     }
     default: {
-      sendNack(in.packet_type, in.payload_data.header_only.sequence, QLCP_ERR_UNKNOWN_TYPE);
+      // Reached only for types the decoder accepted; genuinely unknown types
+      // arrive via the rx == 2 path below (spec 10.7).
+      sendNack(in.packet_type, in.payload_data.header_only.header.sequence, QLCP_ERR_UNKNOWN_TYPE);
       break;
     }
   }
@@ -311,7 +400,7 @@ void qlcpUplinkInit() {
 
 void qlcpUplinkService() {
   uint32_t nowMs = millis();
-  
+
   if (WiFi.status() != WL_CONNECTED) {
     if (s_netState != QLCP_NET_IDLE && s_netState != QLCP_NET_BACKOFF) {
       netFail(nowMs);
@@ -323,11 +412,11 @@ void qlcpUplinkService() {
     }
     return;
   }
-  
+
   switch (s_netState) {
     case QLCP_NET_IDLE: {
       s_netLink.netif_handle = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-      if (ssdp_listen_begin(&s_netLink) == ESP_OK) {
+      if (discovery_listen_begin(&s_netLink) == ESP_OK) {
         netTransition(QLCP_NET_DISCOVER, nowMs);
       } else {
         netFail(nowMs);
@@ -335,9 +424,9 @@ void qlcpUplinkService() {
       break;
     }
     case QLCP_NET_DISCOVER: {
-      const int found = ssdp_listen_service(&s_netLink);
+      const int found = discovery_listen_service(&s_netLink);
       if (found == 1) {
-        ssdp_listen_end(&s_netLink);
+        discovery_listen_end(&s_netLink);
         if (tcp_connect_begin(&s_netLink) == ESP_OK) {
           netTransition(QLCP_NET_TCP_CONNECT, nowMs);
         } else {
@@ -356,6 +445,7 @@ void qlcpUplinkService() {
           break;
         }
         s_configSent = false;
+        s_configAcked = false;
         s_lastRxMs = nowMs;
         s_backoffMs = kNetBackoffMinMs;
         netTransition(QLCP_NET_CONNECTED, nowMs);
@@ -365,16 +455,24 @@ void qlcpUplinkService() {
       break;
     }
     case QLCP_NET_CONNECTED: {
+      // Spec 11: CONFIG is always the first packet on a new connection.
       if (!s_configSent) {
         qlcp_server_payload out = {};
         out.packet_type = QLCP_PT_CONFIG;
         fillHeader(out.payload_data.config.header);
-        out.payload_data.config.config_data = kBoardQlcpConfigJson;
-        out.payload_data.config.config_data_len = sizeof(kBoardQlcpConfigJson) - 1U;
+        out.payload_data.config.config_data = reinterpret_cast<const uint8_t*>(kBoardQlcpConfigJson);
+        out.payload_data.config.config_data_len = static_cast<uint16_t>(sizeof(kBoardQlcpConfigJson) - 1U);
         if (tcp_tx_payload(&s_netLink, &out) == 0) {
           s_configSent = true;
+          s_configSeq = out.payload_data.config.header.sequence;
           Serial.println("Sent CONFIG packet to server");
         }
+      }
+      // Periodic resync. Only runs once the first cycle has been kicked off by
+      // the CONFIG ACK.
+      if (s_configAcked && ((nowMs - s_lastTimesyncMs) >= kTimesyncIntervalMs)) {
+        sendTimesyncReq();
+        s_lastTimesyncMs = nowMs;
       }
       if (tcp_tx_service(&s_netLink) < 0) {
         netFail(nowMs);
@@ -389,20 +487,25 @@ void qlcpUplinkService() {
       if (rx == 1) {
         s_lastRxMs = nowMs;
         qlcpHandlePacket(in);
+      } else if (rx == 2) {
+        // Framing was valid but the type is unrecognized (spec 10.7).
+        s_lastRxMs = nowMs;
+        Serial.printf("[WARN] Unknown packet type %u - NACKing\n", in.packet_type);
+        sendNack(in.packet_type, in.payload_data.header_only.header.sequence, QLCP_ERR_UNKNOWN_TYPE);
       }
       if ((nowMs - s_lastRxMs) >= kNetRxIdleTimeoutMs) {
         Serial.println("[WARN] QLCP server silent - reconnecting");
         netFail(nowMs);
         break;
       }
-      
+
       qlcpTelemetryService(nowMs);
       break;
     }
     case QLCP_NET_BACKOFF: {
       if ((nowMs - s_stateEnteredMs) >= s_backoffMs) {
         s_backoffMs = (s_backoffMs >= (kNetBackoffMaxMs / 2U)) ? kNetBackoffMaxMs : (s_backoffMs * 2U);
-        if (ssdp_listen_begin(&s_netLink) == ESP_OK) {
+        if (discovery_listen_begin(&s_netLink) == ESP_OK) {
           netTransition(QLCP_NET_DISCOVER, nowMs);
         } else {
           netFail(nowMs);
