@@ -13,7 +13,7 @@
 // Node-level identity and interface configuration lives in this file.
 namespace node {
 constexpr char kName[] = "COMMS_MODULE";
-constexpr uint32_t kCanBaud = 500000U;
+constexpr uint32_t kCanBaud = 1000000U;
 constexpr uint32_t kSerialBaud = 38400U;
 const uint8_t kCallSign[6] = {'V','A','3','F','G','K'}; // VERY IMPORTANT; FILL OUT. MUST BE 6 CHARS
 }  // namespace node
