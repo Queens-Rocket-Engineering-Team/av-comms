@@ -1,0 +1,15 @@
+[Unit]
+Description=Webcam Auto-Record on Startup
+After=multi-user.target
+
+[Service]
+ExecStart=/bin/bash /home/avionics/home/pi/webcam_record.sh
+ExecStop=/usr/bin/killall ffmpeg
+Restart=always
+RestartSec=5
+User=avionics
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
