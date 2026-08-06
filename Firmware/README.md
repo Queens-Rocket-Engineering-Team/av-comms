@@ -1,4 +1,4 @@
-# SRAD FirmwarPower Module Firmware
+# SRAD Telemetry Module Firmware
 This directory contains the firmware for the Avionics Communication System. The firmware in this directory should be mostly functional.
 
 We currently use Arduino framework with arduino-esp32 (version 2.0.5) and STM32Duino core (version 2.7.1) for developing firmware for our modules. We flash firmware to the modules via usb/uart and SWD using STLinkV2.
