@@ -31,6 +31,15 @@ extern "C" {
 // states arrive over LoRa but are deliberately not published — they are the
 // UCM/LCM's controls, not GREG's, and QLCP has no way to express relayed
 // control ownership.
+// --- QLCP Schema & Telemetry Integration Guide ---
+// Available Data on AIM Network / LoRa link:
+//   - FastFrame (100 Hz): Altitude (m), Accel (G via getAccelG()), Pt204 Chamber Pressure (PSI via getPressurePsi())
+//   - SlowFrame (1 Hz):   GPS Lat/Lon/Sats, Node Liveness (5 tracked nodes), Solenoid States (fet_status bitmask for AV203, AV205, AV204)
+//
+// Recommended QLCP Schema Updates (kBoardQlcpConfigJson & GREG Ground UI):
+//   1. rocket_position: Replace "Vel" ("m/s") with "Accel" ("G") and "ChamberPt" ("PSI") to match FastFrame.
+//   2. rocket_nodes: Change "unit": "ms" to "unit": "" (readings send 1.0=alive, 0.0=dead, -1.0=no link).
+//   3. Solenoids (Optional): Expose fet_status bitmask from SlowFrame as valve telemetry.
 constexpr char kBoardQlcpConfigJson[] = R"json({
   "device_name": "GREG",
   "device_type": "Sensor Monitor",
