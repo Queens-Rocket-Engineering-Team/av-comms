@@ -28,8 +28,8 @@ struct StateSnapshot {
 static StateSnapshot s_snapshot = {};
 static uint8_t s_seqCnt = 0;
 
-static aim::Job s_fastTxJob{50U, 0U};   // 20 Hz
-static aim::Job s_slowTxJob{1000U, 0U}; // 1 Hz
+static aim::Job s_fastTxJob{100U, 0U};   // 10 Hz
+static aim::Job s_slowTxJob{5000U, 0U};  // 0.2 Hz
 
 // Last startTransmit() error already reported, so a persistent fault logs once
 // rather than at the 20 Hz frame rate.
@@ -78,10 +78,10 @@ static void selfTestTick(uint32_t nowMs) {
   // 0..999 m sawtooth: the GS altitude readout should step once per second.
   s_snapshot.fast.alt_m       = static_cast<int16_t>(s_selfTestCount % 1000U);
   s_snapshot.fast.accel_z_raw = 100;   // 1.00 G  — constant, but not zero
-  s_snapshot.fast.pt204_raw   = 1234;  // 123.4 psi
+  s_snapshot.fast.setGpsPosition(451234567, -736543210);
 
-  // Non-zero GPS so the slow frame is distinguishable from an empty one too.
-  s_snapshot.slow.setGpsPosition(451234567, -736543210, 9, true);
+  // Non-zero GPS status so the slow frame is distinguishable from an empty one too.
+  s_snapshot.slow.setGpsStatus(9, true);
 
   // Battery: exercises the 6-bit vcc_raw field and the GS getBatteryVolts() path.
   s_snapshot.slow.setBatteryVolts(4.20f);
@@ -132,8 +132,8 @@ void nodeInit() {
 
   // Configure explicit header mode
   s_radio.setFrequency(904.5);
-  s_radio.setBandwidth(250.0);
-  s_radio.setSpreadingFactor(7);
+  s_radio.setBandwidth(500.0);
+  s_radio.setSpreadingFactor(10);
   s_radio.setCodingRate(5); // CR 4/5
   s_radio.setOutputPower(20);
   s_radio.setSyncWord(0x12);
@@ -229,14 +229,12 @@ void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
       s_snapshot.fast.setAltitudeFromWire(m.sensorValue());
     } else if (m.subject == aim::subject::Acceleration) {
       s_snapshot.fast.setAccelFromWire(m.sensorValue());
-    } else if (m.subject == aim::subject::Pt204) {
-      s_snapshot.fast.setPressureFromWire(m.sensorValue());
     } else if (m.subject == aim::subject::GpsPosition) {
       int32_t lat = 0, lon = 0;
       m.getGpsPosition(lon, lat);
-      s_snapshot.slow.setGpsPosition(lat, lon, s_snapshot.slow.getSatellites(), true);
+      s_snapshot.fast.setGpsPosition(lat, lon);
     } else if (m.subject == aim::subject::GpsNumSats) {
-      s_snapshot.slow.gps_sats = m.b[0] & 0x0F;
+      s_snapshot.slow.setGpsStatus(m.b[0] & 0x0F, s_snapshot.slow.hasGpsFix());
     } else if (m.subject == aim::subject::BattVolt) {
       s_snapshot.slow.setBatteryVolts(static_cast<float>(m.sensorValue()) / 1000.0f);
     }
@@ -255,18 +253,6 @@ uint16_t nodeErrorBits() {
 }
 
 #ifndef FLIGHT_BUILD
-static const char* sourceName(aim::Source src) {
-  switch (src) {
-    case aim::Source::Comms:     return "COMMS";
-    case aim::Source::Ucm:       return "UCM";
-    case aim::Source::Lcm:       return "LCM";
-    case aim::Source::Altimeter: return "ALT";
-    case aim::Source::Gps:       return "GPS";
-    case aim::Source::Power:     return "PWR";
-    default:                     return "?";
-  }
-}
-
 static void hookLiveness(Stream& out) {
   const uint32_t nowMs = millis();
   out.println("Node liveness:");
