@@ -6,8 +6,8 @@
 
 namespace lora {
 
-static constexpr uint8_t kFastPacketSize = 7;
-static constexpr uint8_t kSlowPacketSize = 12;
+static constexpr uint8_t kFastPacketSize = 13;
+static constexpr uint8_t kSlowPacketSize = 5;
 static constexpr uint32_t kNodeAliveTimeoutMs = 10000;
 
 #pragma pack(push, 1)
@@ -22,47 +22,40 @@ struct FastFrame {
   Header   header;
   int16_t  alt_m;
   int16_t  accel_z_raw;
-  uint16_t pt204_raw;
+  int32_t  gps_lat;
+  int32_t  gps_lon;
 
-  // Wire-native setters: accept the raw CAN i32 directly, no float intermediate.
-  void setAltitudeFromWire(int32_t cm)      { alt_m = static_cast<int16_t>(cm / 100); }
-  void setAccelFromWire(int32_t mm_s2)      { accel_z_raw = static_cast<int16_t>(mm_s2 * 100 / 9810); }  // 1G = 9810 mm/s²
-  void setPressureFromWire(int32_t psi_x100) { pt204_raw = psi_x100 > 0 ? static_cast<uint16_t>(psi_x100 / 10) : 0U; }
+  // Wire-native setters: accept raw values directly.
+  void setAltitudeFromWire(int32_t cm)       { alt_m = static_cast<int16_t>(cm / 100); }
+  void setAccelFromWire(int32_t mm_s2)       { accel_z_raw = static_cast<int16_t>(mm_s2 * 100 / 9810); }  // 1G = 9810 mm/s²
+  void setGpsPosition(int32_t lat1e7, int32_t lon1e7) {
+    gps_lat = lat1e7;
+    gps_lon = lon1e7;
+  }
 
-  // Engineering-unit getters for telemetry decoding (Ground Station / GREG).
-  float getAccelG()      const { return static_cast<float>(accel_z_raw) * 0.01f; }
-  float getPressurePsi() const { return static_cast<float>(pt204_raw) * 0.1f; }
+  // Engineering-unit getters for telemetry decoding.
+  float  getAccelG()       const { return static_cast<float>(accel_z_raw) * 0.01f; }
 };
 
 struct SlowFrame {
   Header   header;
-  int32_t  gps_lat;
-  int32_t  gps_lon;
   uint8_t  gps_sats   : 4;
   uint8_t  gps_fix    : 1;
-  uint8_t  vcc_raw    : 6;
-  uint8_t  fet_status : 6;
-  uint8_t  liveness   : 5;
-  uint8_t  reserved   : 2;
+  uint8_t  reserved   : 3;
+  uint8_t  vcc_raw;
+  uint8_t  fet_status;
+  uint8_t  liveness;
 
-  double getLatitudeDeg()  const { return static_cast<double>(gps_lat) / 1.0e7; }
-  double getLongitudeDeg() const { return static_cast<double>(gps_lon) / 1.0e7; }
-  bool   hasGpsFix()       const { return gps_fix != 0; }
-  uint8_t getSatellites()  const { return gps_sats; }
+  bool   hasGpsFix()      const { return gps_fix != 0; }
+  uint8_t getSatellites() const { return gps_sats; }
 
-  // Exact inverse of setBatteryVolts(): 6-bit raw spans 3.00-6.15 V in 0.05 V
-  // steps. NOTE: setBatteryVolts() carries an unverified-scaling comment, so
-  // this round-trips faithfully but the absolute calibration is still unchecked.
   float getBatteryVolts() const { return 3.0f + static_cast<float>(vcc_raw) * 0.05f; }
 
-  void setGpsPosition(int32_t lat1e7, int32_t lon1e7, uint8_t sats, bool hasFix) {
-    gps_lat  = lat1e7;
-    gps_lon  = lon1e7;
+  void setGpsStatus(uint8_t sats, bool hasFix) {
     gps_sats = sats & 0x0F;
     gps_fix  = hasFix ? 1U : 0U;
   }
 
-  // need to verify this it's probably wrong
   void setBatteryVolts(float volts) {
     if (volts < 3.0f) volts = 3.0f;
     if (volts > 6.15f) volts = 6.15f;
