@@ -45,12 +45,11 @@ constexpr char kBoardQlcpConfigJson[] = R"json({
   "device_type": "Sensor Monitor",
   "sensors": {
     "rocket_position": {
-      "Lat":     { "unit": "deg" },
-      "Lon":     { "unit": "deg" },
-      "Alt":     { "unit": "m" },
-      "Accel":   { "unit": "G-force" },
-      "Chamber": { "unit": "PSI" },
-      "Sats":    { "unit": "count" }
+      "Lat":   { "unit": "deg" },
+      "Lon":   { "unit": "deg" },
+      "Alt":   { "unit": "m" },
+      "Accel": { "unit": "G" },
+      "Sats":  { "unit": "count" }
     },
     "rocket_nodes": {
       "UCM": { "unit": "state" },
@@ -66,17 +65,6 @@ constexpr char kBoardQlcpConfigJson[] = R"json({
       "Packets": { "unit": "count" },
       "LinkAge": { "unit": "ms" }
     },
-    "rocket_radio_config": {
-      "Freq": { "unit": "MHz" },
-      "BW":   { "unit": "kHz" },
-      "SF":   { "unit": "unitless" },
-      "CR":   { "unit": "unitless" }
-    },
-    "ground_station": {
-      "BattV":      { "unit": "V" },
-      "SysCurrent": { "unit": "A" },
-      "AmbTemp":    { "unit": "C" }
-    },
     "voltage_sense": {
       "RocketBatt": { "unit": "V" }
     }
@@ -84,15 +72,15 @@ constexpr char kBoardQlcpConfigJson[] = R"json({
 })json";
 
 // sensor_id bases, one per group above, in JSON member order.
-constexpr uint8_t kSenPositionBase = 0U;   // Lat, Lon, Alt, Accel, Chamber, Sats
-constexpr uint8_t kSenNodesBase    = 6U;   // UCM, LCM, ALT, GPS, PWR
-constexpr uint8_t kSenLinkBase     = 11U;  // RSSI, SNR, FreqErr, Packets, LinkAge
-constexpr uint8_t kSenRadioBase    = 16U;  // Freq, BW, SF, CR
-constexpr uint8_t kSenGsBase       = 20U;  // BattV, SysCurrent, AmbTemp
-constexpr uint8_t kSenRocketBatt   = 23U;  // RocketBatt
-constexpr uint8_t kSensorCount     = 24U;
+constexpr uint8_t kSenPositionBase = 0U;   // Lat, Lon, Alt, Accel, Sats
+constexpr uint8_t kSenNodesBase    = 5U;   // UCM, LCM, ALT, GPS, PWR
+constexpr uint8_t kSenLinkBase     = 10U;  // RSSI, SNR, FreqErr, Packets, LinkAge
+constexpr uint8_t kSenRadioBase    = 15U;  // Freq, BW, SF, CR
+constexpr uint8_t kSenGsBase       = 19U;  // BattV, SysCurrent, AmbTemp
+constexpr uint8_t kSenRocketBatt   = 22U;  // RocketBatt
+constexpr uint8_t kSensorCount     = 23U;
 
-static_assert(kSenNodesBase == kSenPositionBase + 6U, "rocket_position holds 6 sensors");
+static_assert(kSenNodesBase == kSenPositionBase + 5U, "rocket_position holds 5 sensors");
 static_assert(kSenLinkBase == kSenNodesBase + lora::kTrackedNodeCount, "rocket_nodes holds one sensor per tracked node");
 static_assert(kSenRadioBase == kSenLinkBase + 5U, "rocket_link holds 5 sensors");
 static_assert(kSenGsBase == kSenRadioBase + 4U, "rocket_radio_config holds 4 sensors");
@@ -178,9 +166,7 @@ static void sendTelemetry() {
   readings[kSenPositionBase + 3U].id = kSenPositionBase + 3U;
   readings[kSenPositionBase + 3U].value = getRocketAccelG();
   readings[kSenPositionBase + 4U].id = kSenPositionBase + 4U;
-  readings[kSenPositionBase + 4U].value = getRocketPressurePsi();
-  readings[kSenPositionBase + 5U].id = kSenPositionBase + 5U;
-  readings[kSenPositionBase + 5U].value = static_cast<float>(getRocketGPSSats());
+  readings[kSenPositionBase + 4U].value = static_cast<float>(getRocketGPSSats());
 
   // rocket_nodes: 1.0 = alive, 0.0 = dead, -1.0 = no link established yet
   const uint8_t mask = getRocketLivenessMask();
