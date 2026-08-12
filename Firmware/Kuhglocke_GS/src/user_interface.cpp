@@ -135,15 +135,7 @@ void handleLEDs() {
     setRGB(2, 0, 0, 0, true);
   }
 
-  if (isRFMConnected()) {
-    if (getRocketStatus() == kRocketStatusAllNominal) {
-      setRGB(3, 255, 255, 255);
-    } else {
-      setRGB(3, 0, 0, 0);
-    }
-  } else {
-    setRGB(3, 0, 0, 0);
-  }
+  setRGB(3, 0, 0, 0);
 
   if (isRFMConnected()) {
     if (getRocketGPSSats() > 3) {

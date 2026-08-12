@@ -22,25 +22,17 @@ float getRfmLastSNR();
 int32_t getRfmLastFreqErr();
 uint32_t getRfmPacketCount();
 
-bool isRfmLastPacketValid();
-
 // Decoded rocket packet data
 int32_t getRocketGPSLat();
 int32_t getRocketGPSLon();
 uint8_t getRocketGPSSats();
-uint8_t getRocketStatus();
 
 // Engineering-unit accessors (catalog wire scaling undone here)
 double getRocketLatDeg();
 double getRocketLonDeg();
 double getRocketAltitudeMeters();
 float  getRocketAccelG();
-float  getRocketPressurePsi();
 float  getRocketBatteryVolts();
-
-int32_t getCurFreqOffset();
-void changeFreqOffset(int32_t amount);
-void setRadioConfig(const String& name, uint16_t value);
 
 uint8_t getRocketLivenessMask();
 

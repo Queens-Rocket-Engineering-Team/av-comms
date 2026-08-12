@@ -13,11 +13,11 @@ static uint8_t s_freqSelected = 1;
 
 static constexpr uint8_t s_numBandwidthOpts = 10;
 static double s_bandwidthOpts[s_numBandwidthOpts] = {7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500};
-static uint8_t s_bandwidthSelected = 8; // 250 kHz
+static uint8_t s_bandwidthSelected = 9; // 500 kHz
 
 static constexpr uint8_t s_numSpreadOpts = 6;
 static int32_t s_spreadOpts[s_numSpreadOpts] = {7, 8, 9, 10, 11, 12};
-static uint8_t s_spreadSelected = 0; // SF7
+static uint8_t s_spreadSelected = 3; // SF10
 
 static constexpr uint8_t s_numCodingOpts = 4;
 static int32_t s_codingOpts[s_numCodingOpts] = {5, 6, 7, 8};
@@ -27,15 +27,12 @@ static volatile uint32_t s_rfmLastRFReceived = 0;
 static volatile int16_t s_rfmLastRSSI = 0;
 static volatile float s_rfmLastSNR = 0;
 static volatile int32_t s_rfmLastFreqErr = 0;
-static volatile bool s_rfmLastPacketValid = false;
 
 static volatile int32_t s_rocketGPSLat = 0;
 static volatile int32_t s_rocketGPSLon = 0;
 static volatile uint8_t s_rocketGPSSats = 0;
 static volatile int32_t s_rocketAltitude = 0;
 static volatile float   s_rocketAccelG = 0.0f;
-static volatile float   s_rocketPressurePsi = 0.0f;
-static volatile uint8_t s_rocketStatus = 0;
 static volatile float   s_rocketBattVolts = 0.0f;
 
 static int32_t s_curFreqOffset = 0;
@@ -152,22 +149,19 @@ void onRFMReceive() {
   s_packetCount++;
 
   portENTER_CRITICAL(&s_rocketMux);
-  s_rfmLastPacketValid = true;
 
   if (len >= lora::kFastPacketSize && lora::isFastFrame(rfmPayload)) {
-    // Fast Frame (7 Bytes)
+    // Fast Frame (13 Bytes)
     lora::FastFrame fastPkt = lora::decodeFast(rfmPayload);
     s_rocketAltitude    = fastPkt.alt_m;
     s_rocketAccelG      = fastPkt.getAccelG();
-    s_rocketPressurePsi = fastPkt.getPressurePsi();
+    s_rocketGPSLat      = fastPkt.gps_lat;
+    s_rocketGPSLon      = fastPkt.gps_lon;
   } else if (len >= lora::kSlowPacketSize && lora::isSlowFrame(rfmPayload)) {
-    // Slow Frame (12 Bytes)
+    // Slow Frame (5 Bytes)
     lora::SlowFrame slowPkt = lora::decodeSlow(rfmPayload);
-    s_rocketGPSLat = slowPkt.gps_lat;
-    s_rocketGPSLon = slowPkt.gps_lon;
-    s_rocketGPSSats = slowPkt.getSatellites();
-    s_rocketBattVolts = slowPkt.getBatteryVolts();
-
+    s_rocketGPSSats      = slowPkt.getSatellites();
+    s_rocketBattVolts    = slowPkt.getBatteryVolts();
     s_rocketLivenessMask = slowPkt.liveness;
   }
 
@@ -192,14 +186,12 @@ void onRFMReceive() {
   writeToSDLog(logBuf);
 
   char logBuf2[100];
-  snprintf(logBuf2, sizeof(logBuf2), "RocketData:%u,%.6f,%.6f,%.2f,%.2f,%.1f,%u",
+  snprintf(logBuf2, sizeof(logBuf2), "RocketData:%u,%.6f,%.6f,%.2f,%.2f",
            getRocketGPSSats(),
            getRocketLatDeg(),
            getRocketLonDeg(),
            getRocketAltitudeMeters(),
-           static_cast<double>(getRocketAccelG()),
-           static_cast<double>(getRocketPressurePsi()),
-           getRocketStatus());
+           static_cast<double>(getRocketAccelG()));
   writeToSDLog(logBuf2);
 }
 
@@ -251,13 +243,6 @@ float getRfmLastSNR() {
 
 
 
-bool isRfmLastPacketValid() {
-  portENTER_CRITICAL(&s_rocketMux);
-  bool val = s_rfmLastPacketValid;
-  portEXIT_CRITICAL(&s_rocketMux);
-  return val;
-}
-
 int32_t getRocketGPSLat() {
   portENTER_CRITICAL(&s_rocketMux);
   int32_t val = s_rocketGPSLat;
@@ -286,14 +271,6 @@ float getRocketBatteryVolts() {
   return val;
 }
 
-uint8_t getRocketStatus() {
-  portENTER_CRITICAL(&s_rocketMux);
-  uint8_t val = s_rocketStatus;
-  portEXIT_CRITICAL(&s_rocketMux);
-  return val;
-}
-
-
 // Catalog wire scaling (aim_catalog.h): GPS degrees x10^7, altitude meters x100.
 double getRocketLatDeg() {
   portENTER_CRITICAL(&s_rocketMux);
@@ -321,37 +298,6 @@ float getRocketAccelG() {
   float val = s_rocketAccelG;
   portEXIT_CRITICAL(&s_rocketMux);
   return val;
-}
-
-float getRocketPressurePsi() {
-  portENTER_CRITICAL(&s_rocketMux);
-  float val = s_rocketPressurePsi;
-  portEXIT_CRITICAL(&s_rocketMux);
-  return val;
-}
-
-// NOTE: Kept for future manual tuning / local menu support
-int32_t getCurFreqOffset() {
-  return s_curFreqOffset;
-}
-void changeFreqOffset(int32_t amount) {
-  s_curFreqOffset += amount;
-}
-
-void setRadioConfig(const String& name, uint16_t value) {
-  if (name == "bandwidth") {
-    if (value < s_numBandwidthOpts) {
-      s_bandwidthSelected = value;
-    }
-  } else if (name == "spreadingfactor") {
-    if (value < s_numSpreadOpts) {
-      s_spreadSelected = value;
-    }
-  } else if (name == "codingrate") {
-    if (value < s_numCodingOpts) {
-      s_codingSelected = value;
-    }
-  }
 }
 
 int32_t getRfmLastFreqErr() {
