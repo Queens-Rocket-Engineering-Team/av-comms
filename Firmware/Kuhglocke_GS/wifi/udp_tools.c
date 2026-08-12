@@ -23,14 +23,14 @@ void net_link_init(net_link_t *link) {
     link->server_udp_port = 50001;
     link->tcp_sock = -1;
     link->udp_sock = -1;
-    link->ssdp_sock = -1;
+    link->discovery_sock = -1;
 }
 
 void net_link_close_all(net_link_t *link) {
     if (link == NULL) {
         return;
     }
-    ssdp_listen_end(link);
+    discovery_listen_end(link);
     tcp_link_close(link);
     if (link->udp_sock != -1) {
         close(link->udp_sock);

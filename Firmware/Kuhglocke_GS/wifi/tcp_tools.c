@@ -8,7 +8,7 @@
 #include "qlcp_lib.h"
 #include "wifi_tools.h"
 
-// RX assembler: packets are framed by the 9-byte QLCP header whose
+// RX assembler: packets are framed by the 17-byte QLCP header whose
 // packet_length field is the TOTAL length (header included).
 #define RX_ASM_LEN 2048
 // TX pending buffer: must hold the largest packet (CONFIG json ~2.4 KB).
@@ -17,6 +17,10 @@
 // Per-tick budgets — keep every service call bounded under the 2 s task WDT.
 #define RX_BYTES_PER_TICK 512
 #define TX_BYTES_PER_TICK 1024
+
+// Header field offsets (spec 5): magic[4], version[1], type[1], sequence[1].
+#define QLCP_HDR_OFF_TYPE 5
+#define QLCP_HDR_OFF_SEQ 6
 
 static const char *TAG = "TCP";
 
@@ -33,6 +37,28 @@ static void tcp_reset_streams(void) {
     s_rxNeed = QLCP_HEADER_SIZE;
     s_txLen = 0;
     s_txOff = 0;
+}
+
+// Drop the current (invalid) framing candidate and look for the next magic
+// number in whatever's left, so a corrupt or version-mismatched header can't
+// wedge the parser — every call makes forward progress by shrinking the
+// buffer, so a caller looping on this can never spin forever.
+static void tcp_resync(void) {
+    size_t magicPos = 0;
+    if (s_rxHave > 1U &&
+        qlcp_find_magic_num(&magicPos, s_rxBuf + 1U, s_rxHave - 1U) == QLCP_OK) {
+        const size_t keepFrom = magicPos + 1U; // relative to the original buffer
+        memmove(s_rxBuf, s_rxBuf + keepFrom, s_rxHave - keepFrom);
+        s_rxHave -= (uint16_t)keepFrom;
+    } else {
+        // No further magic number in the buffered bytes — keep only enough
+        // trailing bytes that a magic number could still be forming across
+        // this tick's boundary.
+        const uint16_t keep = (s_rxHave < 3U) ? s_rxHave : 3U;
+        memmove(s_rxBuf, s_rxBuf + (s_rxHave - keep), keep);
+        s_rxHave = keep;
+    }
+    s_rxNeed = QLCP_HEADER_SIZE;
 }
 
 esp_err_t tcp_connect_begin(net_link_t *link) {
@@ -164,8 +190,9 @@ int tcp_rx_service(net_link_t *link, qlcp_client_payload *out) {
             uint16_t totalLen = 0;
             if (qlcp_get_packet_len(&totalLen, s_rxBuf, s_rxHave) != QLCP_OK ||
                 totalLen < QLCP_HEADER_SIZE || totalLen > sizeof(s_rxBuf)) {
-                ESP_LOGE(TAG, "bad packet length %u — resync via reconnect", totalLen);
-                return -1;
+                ESP_LOGW(TAG, "bad frame at stream head — resyncing on magic number");
+                tcp_resync();
+                continue; // retry parsing from the resynced position within budget
             }
             s_rxNeed = totalLen;
             if (s_rxHave < s_rxNeed) {
@@ -175,8 +202,20 @@ int tcp_rx_service(net_link_t *link, qlcp_client_payload *out) {
 
         // full packet assembled
         qlcp_lib_ret ret = qlcp_decode_server_to_client(out, s_rxBuf, s_rxHave);
+        // The decoder rejects an unrecognized PACKET_TYPE before populating the
+        // payload, so capture the two header fields the caller needs to answer
+        // it while the buffer is still intact.
+        const uint8_t hdrType = s_rxBuf[QLCP_HDR_OFF_TYPE];
+        const uint8_t hdrSeq = s_rxBuf[QLCP_HDR_OFF_SEQ];
         s_rxHave = 0;
         s_rxNeed = QLCP_HEADER_SIZE;
+        if (ret == QLCP_INVALID_PACKET_TYPE) {
+            // Spec 10.7: unknown packet types MUST be answered with a NACK, so
+            // this case is surfaced rather than dropped. Framing was valid.
+            out->packet_type = (qlcp_packet_type)hdrType;
+            out->payload_data.header_only.header.sequence = hdrSeq;
+            return 2;
+        }
         if (ret != QLCP_OK) {
             ESP_LOGE(TAG, "QRET protocol err: %d", ret);
             return 0; // framing intact — skip the bad packet
@@ -229,6 +268,9 @@ int tcp_tx_payload(net_link_t *link, const qlcp_server_payload *payload) {
     // encode immediately: payloads carrying pointers (status/data) reference
     // caller-stack arrays that are only valid during this call
     switch (payload->packet_type) {
+    case QLCP_PT_TIMESYNC_REQ:
+        ret = qlcp_encode_header_only(s_txBuf, &packet_len, &payload->payload_data.header_only);
+        break;
     case QLCP_PT_CONFIG:
         ret = qlcp_encode_config(s_txBuf, &packet_len, &payload->payload_data.config);
         break;

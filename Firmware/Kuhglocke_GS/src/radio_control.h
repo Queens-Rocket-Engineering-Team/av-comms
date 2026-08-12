@@ -36,6 +36,7 @@ double getRocketLonDeg();
 double getRocketAltitudeMeters();
 float  getRocketAccelG();
 float  getRocketPressurePsi();
+float  getRocketBatteryVolts();
 
 int32_t getCurFreqOffset();
 void changeFreqOffset(int32_t amount);

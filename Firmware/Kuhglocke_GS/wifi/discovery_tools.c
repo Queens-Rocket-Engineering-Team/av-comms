@@ -8,20 +8,22 @@
 #include <string.h>
 #include <sys/socket.h>
 
-#define SSDP_PORT "1900"
-#define SSDP_IP "239.255.255.250"
-#define SSDP_ANY_IP "0.0.0.0"
+#include <qlcp_lib.h>
+
+#define DISCOVERY_PORT "10000"
+#define DISCOVERY_IP "239.100.0.1"
+#define DISCOVERY_ANY_IP "0.0.0.0"
 
 // Bound per service call: at most this many datagrams are drained per tick.
-#define SSDP_RECV_PER_TICK 2
+#define DISCOVERY_RECV_PER_TICK 2
 
-static const char *TAG = "SSDP";
+static const char *TAG = "DISCOVERY";
 
-esp_err_t ssdp_listen_begin(net_link_t *link) {
+esp_err_t discovery_listen_begin(net_link_t *link) {
     if (link == NULL || link->netif_handle == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
-    if (link->ssdp_sock != -1) {
+    if (link->discovery_sock != -1) {
         return ESP_OK; // already listening
     }
 
@@ -35,7 +37,7 @@ esp_err_t ssdp_listen_begin(net_link_t *link) {
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_protocol = IPPROTO_UDP;
 
-    err = getaddrinfo(SSDP_ANY_IP, SSDP_PORT, &hints, &res);
+    err = getaddrinfo(DISCOVERY_ANY_IP, DISCOVERY_PORT, &hints, &res);
     if (err != 0) {
         goto cleanup;
     }
@@ -51,13 +53,13 @@ esp_err_t ssdp_listen_begin(net_link_t *link) {
         goto cleanup;
     }
 
-    // bind the socket to port 1900, any ip
+    // bind the socket to the discovery port, any ip
     err = bind(sock, res->ai_addr, res->ai_addrlen);
     if (err != 0) {
         goto cleanup;
     }
 
-    // add membership to SSDP multicast ip
+    // add membership to the QLCP discovery multicast group
     esp_netif_ip_info_t ip_info = {0};
     esp_netif_get_ip_info(link->netif_handle, &ip_info);
 
@@ -66,7 +68,7 @@ esp_err_t ssdp_listen_begin(net_link_t *link) {
 
     ip_mreq imreq = {0};
     imreq.imr_interface.s_addr = local_addr.s_addr;
-    err = inet_pton(AF_INET, SSDP_IP, &imreq.imr_multiaddr.s_addr);
+    err = inet_pton(AF_INET, DISCOVERY_IP, &imreq.imr_multiaddr.s_addr);
     if (err != 1) {
         goto cleanup;
     }
@@ -80,7 +82,7 @@ esp_err_t ssdp_listen_begin(net_link_t *link) {
         goto cleanup;
     }
 
-    link->ssdp_sock = sock;
+    link->discovery_sock = sock;
     ESP_LOGI(TAG, "Listening for server discovery");
     ret = ESP_OK;
 
@@ -94,18 +96,18 @@ cleanup:
     return ret;
 }
 
-int ssdp_listen_service(net_link_t *link) {
-    if (link == NULL || link->ssdp_sock < 0) {
+int discovery_listen_service(net_link_t *link) {
+    if (link == NULL || link->discovery_sock < 0) {
         return -1;
     }
 
-    static char buffer[1024];
+    static uint8_t buffer[QLCP_HEADER_SIZE];
     struct sockaddr_in remote_addr = {0};
     socklen_t remote_addr_len;
 
-    for (int i = 0; i < SSDP_RECV_PER_TICK; i++) {
+    for (int i = 0; i < DISCOVERY_RECV_PER_TICK; i++) {
         remote_addr_len = sizeof remote_addr;
-        ssize_t len = recvfrom(link->ssdp_sock, buffer, sizeof buffer - 1, MSG_DONTWAIT,
+        ssize_t len = recvfrom(link->discovery_sock, buffer, sizeof buffer, MSG_DONTWAIT,
                                (struct sockaddr *)&remote_addr, &remote_addr_len);
         if (len < 0) {
             if (errno == EWOULDBLOCK || errno == EAGAIN) {
@@ -115,25 +117,28 @@ int ssdp_listen_service(net_link_t *link) {
             return -1;
         }
 
-        buffer[len] = '\0'; // recvfrom does not null terminate buffer
-        ESP_LOGD(TAG, "%s", buffer);
-
-        // check if received data matches server SSDP request
-        if (strcasestr(buffer, "M-SEARCH * HTTP/1.1") != NULL &&
-            strcasestr(buffer, "HOST: 239.255.255.250:1900") != NULL &&
-            strcasestr(buffer, "ST: urn:qretprop:espdevice:1") != NULL) {
-            inet_ntop(remote_addr.sin_family, &remote_addr.sin_addr,
-                      link->server_ip, sizeof(link->server_ip));
-            ESP_LOGI(TAG, "Server discovered at %s", link->server_ip);
-            return 1;
+        // Validate framing (magic num, version, length) and packet type
+        // before trusting the datagram's source address as the server IP —
+        // the multicast group is world-writable.
+        qlcp_client_payload payload = {0};
+        if (qlcp_decode_server_to_client(&payload, buffer, (size_t)len) != QLCP_OK) {
+            continue;
         }
+        if (payload.packet_type != QLCP_PT_DISCOVERY) {
+            continue;
+        }
+
+        inet_ntop(remote_addr.sin_family, &remote_addr.sin_addr,
+                  link->server_ip, sizeof(link->server_ip));
+        ESP_LOGI(TAG, "Server discovered at %s", link->server_ip);
+        return 1;
     }
     return 0;
 }
 
-void ssdp_listen_end(net_link_t *link) {
-    if (link != NULL && link->ssdp_sock != -1) {
-        close(link->ssdp_sock);
-        link->ssdp_sock = -1;
+void discovery_listen_end(net_link_t *link) {
+    if (link != NULL && link->discovery_sock != -1) {
+        close(link->discovery_sock);
+        link->discovery_sock = -1;
     }
 }

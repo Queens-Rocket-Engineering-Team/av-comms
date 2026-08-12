@@ -31,6 +31,69 @@ static uint8_t s_seqCnt = 0;
 static aim::Job s_fastTxJob{50U, 0U};   // 20 Hz
 static aim::Job s_slowTxJob{1000U, 0U}; // 1 Hz
 
+// Last startTransmit() error already reported, so a persistent fault logs once
+// rather than at the 20 Hz frame rate.
+static int s_txLastLoggedErr = RADIOLIB_ERR_NONE;
+
+#if defined(AIM_COMMS_SELFTEST) && defined(FLIGHT_BUILD)
+#error "AIM_COMMS_SELFTEST is a bench aid and must not be built into flight firmware"
+#endif
+
+#ifdef AIM_COMMS_SELFTEST
+static aim::Job s_selfTestJob{1000U, 0U};
+static uint16_t s_selfTestCount = 0U;
+static uint32_t s_txOkCount     = 0U;
+static uint32_t s_txErrCount    = 0U;
+#endif
+
+// Hands a frame to the radio, reporting a failure the TX path used to swallow.
+static bool startTx(const uint8_t* buf, uint8_t len) {
+  const int state = s_radio.startTransmit(buf, len);
+  if (state == RADIOLIB_ERR_NONE) {
+    s_txLastLoggedErr = RADIOLIB_ERR_NONE;
+#ifdef AIM_COMMS_SELFTEST
+    s_txOkCount++;
+#endif
+    return true;
+  }
+
+#ifdef AIM_COMMS_SELFTEST
+  s_txErrCount++;
+#endif
+  if (state != s_txLastLoggedErr) {
+    s_txLastLoggedErr = state;
+    LOG_ERROR("LoRa startTransmit failed, code %d", state);
+  }
+  return false;
+}
+
+#ifdef AIM_COMMS_SELFTEST
+// Bench link check: stamp obviously-synthetic, *changing* values into the frames
+// so the GS proves decode rather than just carrier, and report TX accounting on
+// the console so a failure can be pinned to the Comms side or the RF path.
+static void selfTestTick(uint32_t nowMs) {
+  if (!s_selfTestJob.due(nowMs)) return;
+  s_selfTestCount++;
+
+  // 0..999 m sawtooth: the GS altitude readout should step once per second.
+  s_snapshot.fast.alt_m       = static_cast<int16_t>(s_selfTestCount % 1000U);
+  s_snapshot.fast.accel_z_raw = 100;   // 1.00 G  — constant, but not zero
+  s_snapshot.fast.pt204_raw   = 1234;  // 123.4 psi
+
+  // Non-zero GPS so the slow frame is distinguishable from an empty one too.
+  s_snapshot.slow.setGpsPosition(451234567, -736543210, 9, true);
+
+  // Battery: exercises the 6-bit vcc_raw field and the GS getBatteryVolts() path.
+  s_snapshot.slow.setBatteryVolts(4.20f);
+
+  LOG_INFO("SELFTEST n=%u alt=%d txOk=%lu txErr=%lu",
+           static_cast<unsigned>(s_selfTestCount),
+           static_cast<int>(s_snapshot.fast.alt_m),
+           static_cast<unsigned long>(s_txOkCount),
+           static_cast<unsigned long>(s_txErrCount));
+}
+#endif
+
 static void setTxFlag(void) {
   s_transmittedFlag = true;
 }
@@ -82,6 +145,10 @@ void nodeInit() {
 void nodeUpdate(uint32_t nowMs) {
   updateLed(nodeCurrentState());
 
+#ifdef AIM_COMMS_SELFTEST
+  selfTestTick(nowMs);
+#endif
+
   if (s_transmitting) {
     if (s_transmittedFlag) {
       s_transmittedFlag = false;
@@ -105,8 +172,7 @@ void nodeUpdate(uint32_t nowMs) {
       uint8_t buf[lora::kSlowPacketSize];
       lora::encodeSlow(s_snapshot.slow, buf);
 
-      int state = s_radio.startTransmit(buf, lora::kSlowPacketSize);
-      if (state == RADIOLIB_ERR_NONE) {
+      if (startTx(buf, lora::kSlowPacketSize)) {
         s_transmitting = true;
         s_seqCnt = (s_seqCnt + 1U) % 16U;
       }
@@ -117,8 +183,7 @@ void nodeUpdate(uint32_t nowMs) {
       uint8_t buf[lora::kFastPacketSize];
       lora::encodeFast(s_snapshot.fast, buf);
 
-      int state = s_radio.startTransmit(buf, lora::kFastPacketSize);
-      if (state == RADIOLIB_ERR_NONE) {
+      if (startTx(buf, lora::kFastPacketSize)) {
         s_transmitting = true;
         s_seqCnt = (s_seqCnt + 1U) % 16U;
       }

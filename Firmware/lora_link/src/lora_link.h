@@ -50,6 +50,11 @@ struct SlowFrame {
   bool   hasGpsFix()       const { return gps_fix != 0; }
   uint8_t getSatellites()  const { return gps_sats; }
 
+  // Exact inverse of setBatteryVolts(): 6-bit raw spans 3.00-6.15 V in 0.05 V
+  // steps. NOTE: setBatteryVolts() carries an unverified-scaling comment, so
+  // this round-trips faithfully but the absolute calibration is still unchecked.
+  float getBatteryVolts() const { return 3.0f + static_cast<float>(vcc_raw) * 0.05f; }
+
   void setGpsPosition(int32_t lat1e7, int32_t lon1e7, uint8_t sats, bool hasFix) {
     gps_lat  = lat1e7;
     gps_lon  = lon1e7;

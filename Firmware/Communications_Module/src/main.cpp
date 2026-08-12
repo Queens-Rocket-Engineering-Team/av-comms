@@ -67,6 +67,8 @@ static void hookStatus(Stream& out) {
 void setup(void) {
   g_serial.begin(node::kSerialBaud);
   g_logger = &g_log;
+  g_log.setFilterMask(0x0F);
+
   LOG_INFO("Boot %s source=%u", node::kName, static_cast<unsigned>(aim::Source::Comms));
   IWatchdog.begin(kWatchdogTimeoutUs);
   LOG_INFO("Watchdog ready");
