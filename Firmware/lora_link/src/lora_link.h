@@ -21,20 +21,20 @@ struct Header {
 struct FastFrame {
   Header   header;
   int16_t  alt_m;
-  int16_t  accel_z_raw;
+  int16_t  accel_raw;
   int32_t  gps_lat;
   int32_t  gps_lon;
 
   // Wire-native setters: accept raw values directly.
   void setAltitudeFromWire(int32_t cm)       { alt_m = static_cast<int16_t>(cm / 100); }
-  void setAccelFromWire(int32_t mm_s2)       { accel_z_raw = static_cast<int16_t>(mm_s2 * 100 / 9810); }  // 1G = 9810 mm/s²
+  void setAccelFromWire(int32_t mm_s2)       { accel_raw = static_cast<int16_t>(mm_s2 * 100 / 9810); }  // 1G = 9810 mm/s² (magnitude x100)
   void setGpsPosition(int32_t lat1e7, int32_t lon1e7) {
     gps_lat = lat1e7;
     gps_lon = lon1e7;
   }
 
   // Engineering-unit getters for telemetry decoding.
-  float  getAccelG()       const { return static_cast<float>(accel_z_raw) * 0.01f; }
+  float  getAccelG()       const { return static_cast<float>(accel_raw) * 0.01f; }
 };
 
 struct SlowFrame {
@@ -49,7 +49,7 @@ struct SlowFrame {
   bool   hasGpsFix()      const { return gps_fix != 0; }
   uint8_t getSatellites() const { return gps_sats; }
 
-  float getBatteryVolts() const { return 3.0f + static_cast<float>(vcc_raw) * 0.05f; }
+  float getBatteryVolts() const { return static_cast<float>(vcc_raw) * 0.05f; }
 
   void setGpsStatus(uint8_t sats, bool hasFix) {
     gps_sats = sats & 0x0F;
@@ -57,9 +57,9 @@ struct SlowFrame {
   }
 
   void setBatteryVolts(float volts) {
-    if (volts < 3.0f) volts = 3.0f;
-    if (volts > 6.15f) volts = 6.15f;
-    vcc_raw = static_cast<uint8_t>((volts - 3.0f) / 0.05f) & 0x3F;
+    if (volts < 0.0f) volts = 0.0f;
+    if (volts > 12.75f) volts = 12.75f;
+    vcc_raw = static_cast<uint8_t>(volts / 0.05f + 0.5f);
   }
 
   void setSolenoidState(uint8_t channel, bool energized) {
@@ -116,6 +116,17 @@ inline const char* sourceName(aim::Source src) {
     case aim::Source::Power:     return "PWR";
     case aim::Source::Comms:     return "COMMS";
     default:                     return "?";
+  }
+}
+
+inline aim::Source trackedSource(uint8_t index) {
+  switch (index) {
+    case 0: return aim::Source::Ucm;
+    case 1: return aim::Source::Lcm;
+    case 2: return aim::Source::Altimeter;
+    case 3: return aim::Source::Gps;
+    case 4: return aim::Source::Power;
+    default: return static_cast<aim::Source>(0);
   }
 }
 

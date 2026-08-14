@@ -50,7 +50,10 @@ static void drawTelemetry() {
   s_display.print(getRocketAltitudeMeters() * 3.28084, 0);
   s_display.print("ft");
 
-
+  s_display.setCursor(0, 64);
+  s_display.print("ACC ");
+  s_display.print(getRocketAccelG(), 2);
+  s_display.print(" G");
 
   s_display.drawLine(0, 82, kDisplayW, 82, GxEPD_BLACK);
 
@@ -82,20 +85,13 @@ static void drawTelemetry() {
 
   s_display.setCursor(0, 97);
   s_display.print(getRfmLastRSSI());
-  s_display.print("dBm");
-
-  s_display.setCursor(60, 97);
+  s_display.print("dBm ");
   s_display.print(getRfmLastSNR(), 1);
-  s_display.print("dB");
-
-  s_display.setCursor(120, 97);
-  s_display.print("#");
-  s_display.print(getRfmPacketCount());
-
-  s_display.setCursor(180, 97);
-  s_display.print("BAT ");
-  s_display.print(voltToPercent(getBatteryVoltage()));
-  s_display.print("%");
+  s_display.print("dB R:");
+  s_display.print(getRocketBatteryVolts(), 2);
+  s_display.print("V GS:");
+  s_display.print(getBatteryVoltage() / 1000.0f, 2);
+  s_display.print("V");
 }
 
 // --- Screen: Node Health ---
@@ -119,7 +115,7 @@ static void drawNodeHealth() {
 
     s_display.setTextSize(2);
     s_display.setCursor(2, rowY);
-    s_display.print(lora::sourceName(static_cast<aim::Source>(i + 1)));
+    s_display.print(lora::sourceName(lora::trackedSource(i)));
 
     if (!everHeard) {
       s_display.setCursor(60, rowY);
@@ -215,10 +211,12 @@ static void drawRadio() {
     s_display.print("---");
   }
 
-  s_display.setCursor(84, 90);
-  s_display.print("BAT ");
-  s_display.print(voltToPercent(getBatteryVoltage()));
-  s_display.print("%");
+  s_display.setCursor(76, 90);
+  s_display.print("R:");
+  s_display.print(getRocketBatteryVolts(), 2);
+  s_display.print("V GS:");
+  s_display.print(getBatteryVoltage() / 1000.0f, 2);
+  s_display.print("V");
 
   if (!editing) {
     s_display.setCursor(168, 90);

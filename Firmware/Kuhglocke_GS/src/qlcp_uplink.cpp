@@ -65,6 +65,17 @@ constexpr char kBoardQlcpConfigJson[] = R"json({
       "Packets": { "unit": "count" },
       "LinkAge": { "unit": "ms" }
     },
+    "rocket_radio_config": {
+      "Freq": { "unit": "MHz" },
+      "BW":   { "unit": "kHz" },
+      "SF":   { "unit": "count" },
+      "CR":   { "unit": "count" }
+    },
+    "ground_station": {
+      "BattV":      { "unit": "V" },
+      "SysCurrent": { "unit": "A" },
+      "AmbTemp":    { "unit": "degC" }
+    },
     "voltage_sense": {
       "RocketBatt": { "unit": "V" }
     }

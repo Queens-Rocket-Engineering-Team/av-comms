@@ -15,17 +15,10 @@ static constexpr uint32_t kWatchdogTimeoutUs  = 2000000U;
 static constexpr uint8_t  kMaxRxFramesPerLoop = 8U;
 static constexpr uint32_t kLivenessTimeoutMs  = 10000U;  // node considered dead after 10 s silent
 
-// Flight-recorder geometry. No telemetry rows are written yet; the recorder
-// exists so the console can dump/erase. Headers must have static lifetime.
-static constexpr uint8_t  kLogCols           = 1U;
-static constexpr uint16_t kLogOriginRefresh  = 64U;
-static constexpr uint32_t kLogMaxSize        = 1UL * 1024UL * 1024UL;
-static const char* const  kLogHeaders[kLogCols] = {"time"};
-
 static AimStm32CanCore g_canHw(node::kCanBaud, CAN1);
-static AimNetwork g_aim(&g_canHw, aim::Source::Comms);
+static AimNetwork g_aim(&g_canHw, node::kSource);
 static SoftwareSerial g_serial(pins::kSerialRx, pins::kSerialTx);
-static Logger g_log(g_serial, static_cast<uint8_t>(aim::Source::Comms), LogLevel::INFO);
+static Logger g_log(g_serial, static_cast<uint8_t>(node::kSource), LogLevel::INFO);
 
 // Flash on SPI2: MOSI=PB15, MISO=PB14, SCLK=PB13, CS=PB12 (see pinouts.h).
 static SPIClass g_flashSpi(pins::kSpiMosi, pins::kSpiMiso, pins::kSpiSclk);
@@ -67,7 +60,7 @@ static void hookStatus(Stream& out) {
 void setup(void) {
   g_serial.begin(node::kSerialBaud);
   g_logger = &g_log;
-  g_log.setFilterMask(0x0F);
+  // g_log.setFilterMask(0x0F);
 
   LOG_INFO("Boot %s source=%u", node::kName, static_cast<unsigned>(aim::Source::Comms));
   IWatchdog.begin(kWatchdogTimeoutUs);
@@ -113,6 +106,9 @@ void loop(void) {
 
   serviceCanRx();
   nodeUpdate(nowMs);
+  if (!aimConsoleIsActive()) {
+    nodeServiceLog(nowMs, g_recorder);
+  }
   nodeServiceCanTx(nowMs, g_aim);
   g_aim.service(nowMs, nodeCurrentState(), nodeErrorBits());   // heartbeat fills bus silence
 

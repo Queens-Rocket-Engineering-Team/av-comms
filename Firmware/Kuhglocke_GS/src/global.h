@@ -18,8 +18,8 @@ inline constexpr uint32_t kI2cSpeed      = 100000;  // 100kHz
 
 // Strings: use inline constexpr char[]
 // Launch-control network credentials: set before flight; intentionally empty in VCS.
-inline constexpr const char kSsid[] = "Nolito";
-inline constexpr const char kPassword[] = "6138201079";
+inline constexpr const char kSsid[] = "QRET-CTL";
+inline constexpr const char kPassword[] = "Mach2@69";
 
 inline constexpr double   kBattVdiv = 3.003579098067;
 inline constexpr uint16_t kSensorSamplePeriod = 250;

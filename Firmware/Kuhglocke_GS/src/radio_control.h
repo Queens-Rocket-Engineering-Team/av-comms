@@ -33,6 +33,9 @@ double getRocketLonDeg();
 double getRocketAltitudeMeters();
 float  getRocketAccelG();
 float  getRocketBatteryVolts();
+bool   getRocketGpsFix();
+uint8_t getRocketFetStatus();
+uint8_t getRocketFlightState();
 
 uint8_t getRocketLivenessMask();
 

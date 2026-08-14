@@ -13,11 +13,11 @@ static uint8_t s_freqSelected = 1;
 
 static constexpr uint8_t s_numBandwidthOpts = 10;
 static double s_bandwidthOpts[s_numBandwidthOpts] = {7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500};
-static uint8_t s_bandwidthSelected = 9; // 500 kHz
+static uint8_t s_bandwidthSelected = 8; // 250 kHz
 
 static constexpr uint8_t s_numSpreadOpts = 6;
 static int32_t s_spreadOpts[s_numSpreadOpts] = {7, 8, 9, 10, 11, 12};
-static uint8_t s_spreadSelected = 3; // SF10
+static uint8_t s_spreadSelected = 1; // SF8
 
 static constexpr uint8_t s_numCodingOpts = 4;
 static int32_t s_codingOpts[s_numCodingOpts] = {5, 6, 7, 8};
@@ -31,9 +31,12 @@ static volatile int32_t s_rfmLastFreqErr = 0;
 static volatile int32_t s_rocketGPSLat = 0;
 static volatile int32_t s_rocketGPSLon = 0;
 static volatile uint8_t s_rocketGPSSats = 0;
+static volatile bool    s_rocketGpsFix = false;
 static volatile int32_t s_rocketAltitude = 0;
 static volatile float   s_rocketAccelG = 0.0f;
 static volatile float   s_rocketBattVolts = 0.0f;
+static volatile uint8_t s_rocketFetStatus = 0;
+static volatile uint8_t s_rocketFlightState = 0;
 
 static int32_t s_curFreqOffset = 0;
 static volatile bool s_rfmReceivedFlag = false;
@@ -117,6 +120,8 @@ void rfmInit() {
   s_radio.setCodingRate(s_codingOpts[s_codingSelected]);
   s_radio.setSyncWord(0x12);
   s_radio.setPreambleLength(8);
+  s_radio.setCRC(true);
+  s_radio.explicitHeader();
 
   state = s_radio.startReceive();
   if (state == RADIOLIB_ERR_NONE) {
@@ -157,12 +162,16 @@ void onRFMReceive() {
     s_rocketAccelG      = fastPkt.getAccelG();
     s_rocketGPSLat      = fastPkt.gps_lat;
     s_rocketGPSLon      = fastPkt.gps_lon;
+    s_rocketFlightState = fastPkt.header.flight_state;
   } else if (len >= lora::kSlowPacketSize && lora::isSlowFrame(rfmPayload)) {
     // Slow Frame (5 Bytes)
     lora::SlowFrame slowPkt = lora::decodeSlow(rfmPayload);
     s_rocketGPSSats      = slowPkt.getSatellites();
+    s_rocketGpsFix       = slowPkt.hasGpsFix();
     s_rocketBattVolts    = slowPkt.getBatteryVolts();
     s_rocketLivenessMask = slowPkt.liveness;
+    s_rocketFetStatus    = slowPkt.fet_status;
+    s_rocketFlightState  = slowPkt.header.flight_state;
   }
 
   s_rfmLastRFReceived = nowMs;
@@ -313,6 +322,27 @@ uint32_t getRfmPacketCount() {
 
 uint8_t getRocketLivenessMask() {
   return s_rocketLivenessMask;
+}
+
+bool getRocketGpsFix() {
+  portENTER_CRITICAL(&s_rocketMux);
+  bool val = s_rocketGpsFix;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
+}
+
+uint8_t getRocketFetStatus() {
+  portENTER_CRITICAL(&s_rocketMux);
+  uint8_t val = s_rocketFetStatus;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
+}
+
+uint8_t getRocketFlightState() {
+  portENTER_CRITICAL(&s_rocketMux);
+  uint8_t val = s_rocketFlightState;
+  portEXIT_CRITICAL(&s_rocketMux);
+  return val;
 }
 
 // --- Radio parameter editing (driven by menu buttons) ---

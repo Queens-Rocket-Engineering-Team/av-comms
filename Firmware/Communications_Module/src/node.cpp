@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <RadioLib.h>
 #include <lora_link.h>
+#include <aim_flight_recorder.h>
 
 static lora::LivenessTracker s_liveness;
 
@@ -28,8 +29,9 @@ struct StateSnapshot {
 static StateSnapshot s_snapshot = {};
 static uint8_t s_seqCnt = 0;
 
-static aim::Job s_fastTxJob{100U, 0U};   // 10 Hz
-static aim::Job s_slowTxJob{5000U, 0U};  // 0.2 Hz
+static aim::Job s_fastTxJob{1000U, 100U};   // 1 Hz idle, 10 Hz active
+static aim::Job s_slowTxJob{5000U, 2000U};  // 0.2 Hz idle, 0.5 Hz active
+static aim::Job s_flashLogJob{1000U, 100U};
 
 // Last startTransmit() error already reported, so a persistent fault logs once
 // rather than at the 20 Hz frame rate.
@@ -40,7 +42,7 @@ static int s_txLastLoggedErr = RADIOLIB_ERR_NONE;
 #endif
 
 #ifdef AIM_COMMS_SELFTEST
-static aim::Job s_selfTestJob{1000U, 0U};
+static aim::Job s_selfTestJob{1000U};
 static uint16_t s_selfTestCount = 0U;
 static uint32_t s_txOkCount     = 0U;
 static uint32_t s_txErrCount    = 0U;
@@ -76,14 +78,14 @@ static void selfTestTick(uint32_t nowMs) {
   s_selfTestCount++;
 
   // 0..999 m sawtooth: the GS altitude readout should step once per second.
-  s_snapshot.fast.alt_m       = static_cast<int16_t>(s_selfTestCount % 1000U);
-  s_snapshot.fast.accel_z_raw = 100;   // 1.00 G  — constant, but not zero
+  s_snapshot.fast.alt_m     = static_cast<int16_t>(s_selfTestCount % 1000U);
+  s_snapshot.fast.accel_raw = 100;   // 1.00 G magnitude — constant, but not zero
   s_snapshot.fast.setGpsPosition(451234567, -736543210);
 
   // Non-zero GPS status so the slow frame is distinguishable from an empty one too.
   s_snapshot.slow.setGpsStatus(9, true);
 
-  // Battery: exercises the 6-bit vcc_raw field and the GS getBatteryVolts() path.
+  // Battery: exercises the 8-bit vcc_raw field and the GS getBatteryVolts() path.
   s_snapshot.slow.setBatteryVolts(4.20f);
 
   LOG_INFO("SELFTEST n=%u alt=%d txOk=%lu txErr=%lu",
@@ -130,10 +132,10 @@ void nodeInit() {
 
   s_radio.setDio1Action(setTxFlag);
 
-  // Configure explicit header mode
+  // Configure Profile A: 250 kHz, SF8, 904.5 MHz, CR 4/5
   s_radio.setFrequency(904.5);
-  s_radio.setBandwidth(500.0);
-  s_radio.setSpreadingFactor(10);
+  s_radio.setBandwidth(250.0);
+  s_radio.setSpreadingFactor(8);
   s_radio.setCodingRate(5); // CR 4/5
   s_radio.setOutputPower(20);
   s_radio.setSyncWord(0x12);
@@ -154,7 +156,7 @@ void nodeUpdate(uint32_t nowMs) {
       s_transmittedFlag = false;
       s_radio.finishTransmit();
       s_transmitting = false;
-    } else if (nowMs - s_slowTxJob.lastMs > 50U && nowMs - s_fastTxJob.lastMs > 50U) {
+    } else if (nowMs - s_slowTxJob.lastMs > 500U && nowMs - s_fastTxJob.lastMs > 500U) {
       s_radio.finishTransmit();
       s_transmitting = false;
       LOG_WARN("LoRa TX timeout recovered");
@@ -233,8 +235,12 @@ void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
       int32_t lat = 0, lon = 0;
       m.getGpsPosition(lon, lat);
       s_snapshot.fast.setGpsPosition(lat, lon);
+      const bool hasFix = (lat != 0 || lon != 0);
+      s_snapshot.slow.setGpsStatus(s_snapshot.slow.getSatellites(), hasFix);
     } else if (m.subject == aim::subject::GpsNumSats) {
-      s_snapshot.slow.setGpsStatus(m.b[0] & 0x0F, s_snapshot.slow.hasGpsFix());
+      const uint8_t sats = static_cast<uint8_t>(m.sensorValue() & 0x0F);
+      const bool hasFix = (s_snapshot.fast.gps_lat != 0 || s_snapshot.fast.gps_lon != 0);
+      s_snapshot.slow.setGpsStatus(sats, hasFix);
     } else if (m.subject == aim::subject::BattVolt) {
       s_snapshot.slow.setBatteryVolts(static_cast<float>(m.sensorValue()) / 1000.0f);
     }
@@ -252,7 +258,74 @@ uint16_t nodeErrorBits() {
   return 0U;
 }
 
+void nodeServiceLog(uint32_t nowMs, AimFlightRecorder& recorder) {
+  if (!s_flashLogJob.due(nowMs)) return;
+
+  uint32_t vals[3] = {
+    nowMs,
+    static_cast<uint32_t>(s_snapshot.fast.header.flight_state),
+    static_cast<uint32_t>(s_seqCnt)
+  };
+  recorder.writeRow(vals);
+}
+
 #ifndef FLIGHT_BUILD
+static void hookCanSnapshot(Stream& out) {
+  const uint32_t nowMs = millis();
+  out.println("=== CAN Bus Snapshot ===");
+
+  out.print("flight_state=");
+  switch (static_cast<aim::FlightPhase>(s_snapshot.fast.header.flight_state)) {
+    case aim::FlightPhase::Preflight: out.println("Preflight (0)"); break;
+    case aim::FlightPhase::Boost:     out.println("Boost (1)"); break;
+    case aim::FlightPhase::Coast:     out.println("Coast (2)"); break;
+    case aim::FlightPhase::Decent:    out.println("Decent (3)"); break;
+    case aim::FlightPhase::Landed:    out.println("Landed (4)"); break;
+    default:
+      out.println(static_cast<unsigned>(s_snapshot.fast.header.flight_state));
+      break;
+  }
+
+  out.print("alt_m=");
+  out.print(s_snapshot.fast.alt_m);
+  out.println(" m");
+
+  out.print("accel=");
+  out.print(s_snapshot.fast.getAccelG(), 2);
+  out.print(" G (raw=");
+  out.print(s_snapshot.fast.accel_raw);
+  out.println(")");
+
+  out.print("gps_lat=");
+  out.println(static_cast<long>(s_snapshot.fast.gps_lat));
+  out.print("gps_lon=");
+  out.println(static_cast<long>(s_snapshot.fast.gps_lon));
+  out.print("gps_sats=");
+  out.println(static_cast<unsigned>(s_snapshot.slow.getSatellites()));
+  out.print("gps_fix=");
+  out.println(s_snapshot.slow.hasGpsFix() ? "YES" : "NO");
+
+  out.print("batt_vcc=");
+  out.print(s_snapshot.slow.getBatteryVolts(), 2);
+  out.println(" V");
+
+  out.print("fet_status=0x");
+  out.println(s_snapshot.slow.fet_status, HEX);
+  out.print("  AV203 [0]: "); out.println((s_snapshot.slow.fet_status & (1U << 0)) ? "ENERGIZED" : "DE-ENERGIZED");
+  out.print("  AV205 [1]: "); out.println((s_snapshot.slow.fet_status & (1U << 1)) ? "ENERGIZED" : "DE-ENERGIZED");
+  out.print("  AV204 [2]: "); out.println((s_snapshot.slow.fet_status & (1U << 2)) ? "ENERGIZED" : "DE-ENERGIZED");
+  out.print("  PWR_PT_UCM [3]: "); out.println((s_snapshot.slow.fet_status & (1U << 3)) ? "ON" : "OFF");
+  out.print("  PWR_SOL_LCM [4]: "); out.println((s_snapshot.slow.fet_status & (1U << 4)) ? "ON" : "OFF");
+  out.print("  PWR_PT_LCM [5]: "); out.println((s_snapshot.slow.fet_status & (1U << 5)) ? "ON" : "OFF");
+
+  out.print("seq_cnt=");
+  out.println(static_cast<unsigned>(s_seqCnt));
+  out.print("low_power=");
+  out.println(s_lowPower ? 1 : 0);
+  out.print("liveness_mask=0x");
+  out.println(s_liveness.getMask(nowMs), HEX);
+}
+
 static void hookLiveness(Stream& out) {
   const uint32_t nowMs = millis();
   out.println("Node liveness:");
@@ -272,6 +345,7 @@ static void hookLiveness(Stream& out) {
 }
 
 static const AimConsoleHook s_consoleHooks[] = {
+  {'p', "canbus snapshot", hookCanSnapshot},
   {'n', "node liveness", hookLiveness},
 };
 
