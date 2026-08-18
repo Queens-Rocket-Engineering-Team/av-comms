@@ -11,7 +11,7 @@
 #include <aim_console.h>
 #endif
 
-static constexpr uint32_t kWatchdogTimeoutUs  = 2000000U;
+static constexpr uint32_t kWatchdogTimeoutUs  = 10000000U; // 10 seconds timeout
 static constexpr uint8_t  kMaxRxFramesPerLoop = 8U;
 static constexpr uint32_t kLivenessTimeoutMs  = 10000U;  // node considered dead after 10 s silent
 
@@ -47,9 +47,6 @@ static void hookStatus(Stream& out) {
   out.print(aim::kNetworkVersionString);
   out.print(" schema=");
   out.print(static_cast<unsigned>(aim::kSchemaVersion));
-#ifdef AIM_COMMS_TIME_MASTER
-  out.print(" timeMaster=1");
-#endif
   out.print(" build=");
   out.print(__DATE__);
   out.print(" ");
@@ -58,13 +55,12 @@ static void hookStatus(Stream& out) {
 #endif  // FLIGHT_BUILD
 
 void setup(void) {
+  uint32_t start = millis();
   g_serial.begin(node::kSerialBaud);
   g_logger = &g_log;
-  // g_log.setFilterMask(0x0F);
+  g_log.setFilterMask(0x0F);
 
   LOG_INFO("Boot %s source=%u", node::kName, static_cast<unsigned>(aim::Source::Comms));
-  IWatchdog.begin(kWatchdogTimeoutUs);
-  LOG_INFO("Watchdog ready");
 
   // Comms is the downlink aggregator: accept everything worth forwarding, plus
   // Time (to discipline its clock from the master) and Heartbeat (liveness).
@@ -99,6 +95,11 @@ void setup(void) {
 #endif
 
   nodeInit();
+  IWatchdog.begin(kWatchdogTimeoutUs);
+  LOG_INFO("Watchdog ready (%lus timeout)", static_cast<unsigned long>(kWatchdogTimeoutUs / 1000000U));
+
+  const uint32_t end = millis();
+  LOG_INFO("Setup complete (total=%lums)", static_cast<unsigned long>(end - start));
 }
 
 void loop(void) {

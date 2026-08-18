@@ -29,9 +29,9 @@ struct StateSnapshot {
 static StateSnapshot s_snapshot = {};
 static uint8_t s_seqCnt = 0;
 
-static aim::Job s_fastTxJob{1000U, 100U};   // 1 Hz idle, 10 Hz active
-static aim::Job s_slowTxJob{5000U, 2000U};  // 0.2 Hz idle, 0.5 Hz active
-static aim::Job s_flashLogJob{1000U, 100U};
+static aim::Job s_fastTxJob{100U};  // 10 Hz LoRa fast frame
+static aim::Job s_slowTxJob{2000U}; // 0.5 Hz LoRa slow frame
+static aim::Job s_flashLogJob{100U};  // 10 Hz flight log
 
 // Last startTransmit() error already reported, so a persistent fault logs once
 // rather than at the 20 Hz frame rate.
@@ -261,12 +261,12 @@ uint16_t nodeErrorBits() {
 void nodeServiceLog(uint32_t nowMs, AimFlightRecorder& recorder) {
   if (!s_flashLogJob.due(nowMs)) return;
 
-  uint32_t vals[3] = {
+  const uint32_t vals[3] = {
     nowMs,
     static_cast<uint32_t>(s_snapshot.fast.header.flight_state),
     static_cast<uint32_t>(s_seqCnt)
   };
-  recorder.writeRow(vals);
+  recorder.writeRow(vals, nowMs);
 }
 
 #ifndef FLIGHT_BUILD
