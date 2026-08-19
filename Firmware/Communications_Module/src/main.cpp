@@ -58,7 +58,7 @@ void setup(void) {
   uint32_t start = millis();
   g_serial.begin(node::kSerialBaud);
   g_logger = &g_log;
-  g_log.setFilterMask(0x0F);
+  g_log.setFilterMask(static_cast<uint8_t>(LogLevel::INFO));  // INFO only
 
   LOG_INFO("Boot %s source=%u", node::kName, static_cast<unsigned>(aim::Source::Comms));
 
