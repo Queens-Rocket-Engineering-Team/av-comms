@@ -204,7 +204,7 @@ void nodeOnRx(const aim::Msg& m, uint32_t nowMs) {
   if (m.cls == aim::Class::Event) {
     if (m.subject == aim::subject::LowPower) {
       s_lowPower = (m.b[0] == 1U);
-      LOG_INFO("Comms low power state updated: %d", s_lowPower);
+      LOG_DEBUG("Comms low power state updated: %d", s_lowPower);
     } else if (m.subject == aim::subject::LaunchDetect) {
       if (m.b[0] == 1U) {
         s_snapshot.fast.header.flight_state = static_cast<uint8_t>(aim::FlightPhase::Boost);
